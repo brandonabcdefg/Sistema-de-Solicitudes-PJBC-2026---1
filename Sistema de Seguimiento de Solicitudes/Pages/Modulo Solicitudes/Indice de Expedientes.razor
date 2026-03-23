@@ -1,0 +1,325 @@
+﻿@page "/menu/modulo-solicitudes/indice-expedientes"
+
+@* Este atributo indica que la página requiere que el usuario esté autenticado *@
+@attribute [Authorize(Roles = "CONSULTA,CAPTURA,SUPERVISIÓN,ADMINISTRADOR")]
+
+
+@* Se importa el espacio de nombres necesario para usar el atributo [Authorize] *@
+@using Microsoft.AspNetCore.Authorization
+
+<link href="css/app.css" rel="stylesheet" />
+
+@using System.Collections.Generic
+@using SolicitudesShared
+@using Sistema_de_Seguimiento_de_Solicitudes.Services
+@using System.Text.Json
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject IExpedienteService ExpedienteService
+
+<!-- SSSSSS -->
+
+<PageTitle>Solicitudes</PageTitle>
+
+<h3>Consulta de Solicitudes</h3>
+
+
+<!-- Campo de Busqueda -->
+<div class="d-flex align-items-center gap-2 mb-3">
+    <input type="text" class="form-control" placeholder="🔍 Buscar por nombre, folio, contenido, fecha, año..." @bind="Filtro" @bind:event="oninput" style="flex: 1;" />
+
+    <!-- Mostrar botón solo si el usuario tiene el rol adecuado -->
+    @if (PuedeCapturar)
+    {
+        <!-- Botón para agregar nuevo expediente -->
+        <button class="btn-agregar" @onclick="MostrarFormulario"> Registrar Nueva Solicitud </button>
+    }
+</div>
+
+<!-- Modal de formulario para creación de expediente -->
+@if (MostrarFormularioModal)
+{
+    <div class="modal">
+        <div class="modal-contenido">
+            <h4>Nuevo Expediente</h4>
+            <EditForm Model="NuevoExpediente" OnValidSubmit="GuardarExpediente">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div style="display: grid; grid-template-columns: 1fr;">
+                    <label for="NumeroFolio">Folio: </label>
+                    <InputText id="Folio" @bind-Value="NuevoExpediente.Folio" maxlength="20" />
+
+                    <label for="Nombre">Nombre: </label>
+                    <InputText id="Nombre" @bind-Value="NuevoExpediente.NombreSolicitante" />
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label for="FechaInicioTramite">Fecha de Inicio: </label>
+                        <InputDate id="FechaInicioTramite" @bind-Value="NuevoExpediente.FechaInicio" />
+                    </div>
+                    <div>
+                        <label for="Estatus">Estatus: </label>
+                        <InputSelect id="Estatus" @bind-Value="NuevoExpediente.Estado" style="padding: 3px;">
+                            <option value="" disabled selected>Selecciona una opción:</option>
+                            @foreach (var estado in ListaEstados)
+                            {
+                                <option value="@estado">@estado</option>
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="ContenidoSolicitud">Contenido de la Solicitud</label>
+                    <InputTextArea id="ContenidoSolicitud" @bind-Value="NuevoExpediente.ContenidoSolicitud" rows="4" style="width: 100%;" />
+                </div>
+
+                <button type="submit">Guardar</button>
+                <button @onclick="CerrarFormulario">Cancelar</button>
+            </EditForm>
+        </div>
+    </div>
+}  
+
+<div class="table-responsive">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>DETALLES</th>
+                <th>ID</th>
+                <th>FOLIO</th>
+                <th>NOMBRE</th>
+                <th>FECHA DE INICIO</th>
+                <th>ESTATUS</th>
+                <th>CONTENIDO DE LA SOLICITUD</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (ExpedientesFiltrados != null && ExpedientesFiltrados.Any())
+            {
+                @foreach (var expediente in PagedExpedientes)
+                {
+                    <tr>
+                        <td>
+                            <button @onclick="() => VerDetalle(expediente.Id)">Ver</button>
+                        </td>
+                        <td>@expediente.Id</td>
+                        <td>@expediente.Folio</td>
+                        <td>@expediente.NombreSolicitante</td>
+                        <td>@(expediente.FechaInicio.ToString("dd/MM/yyyy HH:mm:ss") ?? "N/A")</td>
+                        <td>@expediente.Estado</td>
+                        <td style="padding-left: 8px; padding-right: 8px; width: 518px;">
+                            <span class="truncate">
+                                @expediente.ContenidoSolicitud
+                            </span>
+                            @if (expediente.ContenidoSolicitud?.Length > 100)
+                            {
+                                <span class="ver-mas" @onclick="() => OpenModal(expediente.ContenidoSolicitud)">
+                                    Ver más
+                                </span>
+                            }
+                        </td>
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="7" style="text-align: center; font-size: 30px; font-weight: bold; color: #ff0000; padding: 15px; background-color: #ffecec; border: 1px solid #ffaaaa;">
+                        No se encontraron resultados.
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+
+<!-- Modal para ver el contenido completo de la solicitud -->
+<div id="myModal" class="modalCont" style="display: none;" @onclick="CloseModal">
+    <div class="modal-contentt" @onclick:stopPropagation>
+        <span class="close" @onclick="CloseModal">&times;</span>
+        <h2>Contenido de la Solicitud</h2>
+        <p>@modalContenido</p> <!-- Mostrar el contenido completo de la solicitud -->
+    </div>
+</div> 
+
+<div class="d-flex justify-content-center align-items-center mt-3" style="padding-bottom: 16px">
+    <button class="btn btn-primary mx-2" style="width: 90px" @onclick="PrevPage" disabled="@(currentPage <= 1)">
+        Anterior
+    </button>
+    <span>Página @currentPage de @totalPages</span>
+    <button class="btn btn-primary mx-2" style="width: 90px" @onclick="NextPage" disabled="@(currentPage >= totalPages)">
+        Siguiente
+    </button>
+</div>
+
+@code {
+    private bool MostrarModal { get; set; } = false;
+    private bool MostrarFormularioModal { get; set; } = false;
+    private int IdEliminar { get; set; }
+    private string MensajeError { get; set; } = "";
+    private bool MostrarMensajeError { get; set; } = false;
+    private string modalContenido = "";
+
+    private string _filtro = string.Empty;
+    private string Filtro
+    {
+        get => _filtro;
+        set
+        {
+            if (_filtro != value)
+            {
+                _filtro = value;
+                _ = Buscar(); // 👉 ahora consulta al backend
+            }
+        }
+    }
+
+    List<ExpedienteDTO>? listaExpedientes = null;
+    private List<ExpedienteDTO> ExpedientesFiltrados { get; set; } = new();
+    private ExpedienteDTO NuevoExpediente { get; set; } = new();
+
+    // Roles
+    private bool PuedeCapturar = false;
+
+    // Paginación
+    private int currentPage = 1;
+    private int pageSize = 12;
+    private int totalPages => (ExpedientesFiltrados.Count + pageSize - 1) / pageSize;
+
+    private IEnumerable<ExpedienteDTO> PagedExpedientes => ExpedientesFiltrados
+        .OrderByDescending(e => e.Id)
+        .Skip((currentPage - 1) * pageSize)
+        .Take(pageSize);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            pageSize = await JSRuntime.InvokeAsync<int>("getPageSizeBasedOnResolution");
+            StateHasChanged();
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+
+        PuedeCapturar = user.IsInRole("CAPTURA") || user.IsInRole("SUPERVISIÓN") || user.IsInRole("ADMINISTRADOR");
+
+        listaExpedientes = await ExpedienteService.Lista();
+        ExpedientesFiltrados = new List<ExpedienteDTO>(listaExpedientes.OrderByDescending(e => e.Id));
+    }
+
+    //  Nueva búsqueda: folio + contenido + solicitante (API)
+    private async Task Buscar()
+    {
+        if (!string.IsNullOrWhiteSpace(Filtro))
+        {
+            ExpedientesFiltrados = await ExpedienteService.BuscarPorTexto(Filtro);
+        }
+        else
+        {
+            listaExpedientes = await ExpedienteService.Lista();
+            ExpedientesFiltrados = new List<ExpedienteDTO>(listaExpedientes.OrderByDescending(e => e.Id));
+        }
+
+        currentPage = 1; // reinicia la paginación
+        StateHasChanged();
+    }
+
+    private async Task LimpiarBusqueda()
+    {
+        Filtro = string.Empty;
+        listaExpedientes = await ExpedienteService.Lista();
+        ExpedientesFiltrados = new List<ExpedienteDTO>(listaExpedientes.OrderByDescending(e => e.Id));
+        currentPage = 1;
+    }
+
+    private void VerDetalle(int id)
+    {
+        var expediente = listaExpedientes!.FirstOrDefault(e => e.Id == id);
+        if (expediente != null)
+        {
+            Navigation.NavigateTo($"/menu/modulo-solicitudes/indice-expedientes/detalles/{id}/{expediente.Folio}");
+        }
+    }
+
+    private List<string> ListaEstados = new()
+    {
+        "EN PROCESO", "TERMINADA"
+    };
+
+
+    private void MostrarFormulario() => MostrarFormularioModal = true;
+    private void CerrarFormulario() => MostrarFormularioModal = false;
+
+    private async Task GuardarExpediente()
+    {
+        // ✅ Validar que el folio no esté vacío
+        if (string.IsNullOrWhiteSpace(NuevoExpediente.Folio))
+        {
+            await MostrarAlerta("ERROR: EL FOLIO ES OBLIGATORIO.");
+            return;
+        }
+
+        // ✅ Validar que el folio no se repita
+        if (listaExpedientes!.Any(e => e.Folio == NuevoExpediente.Folio))
+        {
+            await MostrarAlerta("ERROR: EL FOLIO YA EXISTE.");
+            return;
+        }
+
+        // ❌ El nombre ya no es obligatorio (se elimina esa validación)
+
+        // Asignar fecha y hora actuales
+        NuevoExpediente.FechaInicio = NuevoExpediente.FechaInicio.Date.Add(DateTime.Now.TimeOfDay);
+
+        await ExpedienteService.Crear(NuevoExpediente);
+
+        listaExpedientes = await ExpedienteService.Lista();
+        ExpedientesFiltrados = new List<ExpedienteDTO>(listaExpedientes.OrderByDescending(e => e.Id));
+
+        MostrarFormularioModal = false;
+    }
+
+
+    private async Task MostrarAlerta(string mensaje)
+    {
+        MensajeError = mensaje;
+        MostrarMensajeError = true;
+        await Task.Delay(4000);
+        MostrarMensajeError = false;
+        StateHasChanged();
+    }
+
+    private async Task OpenModal(string contenido)
+    {
+        modalContenido = contenido;
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('myModal').style.display = 'block';");
+    }
+
+    private async Task CloseModal()
+    {
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('myModal').style.display = 'none';");
+    }
+
+    private void PrevPage() { if (currentPage > 1) currentPage--; }
+    private void NextPage() { if (currentPage < totalPages) currentPage++; }
+}
+
+
+@if (MostrarMensajeError)
+     {
+         <div class="alerta flotante">
+             @MensajeError
+         </div>
+     }

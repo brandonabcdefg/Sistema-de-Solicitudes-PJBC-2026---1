@@ -1,0 +1,377 @@
+﻿@page "/menu/modulo-solicitudes/inicio-solicitudes"
+
+@* Este atributo indica que la página requiere que el usuario esté autenticado *@
+@attribute [Authorize]
+@*@attribute [Authorize(Roles = "ADMINISTRADOR,CAPTURISTA,OBSERVADOR")]*@
+
+@* Se importa el espacio de nombres necesario para usar el atributo [Authorize] *@
+@using Microsoft.AspNetCore.Authorization
+
+@using System.Collections.Generic
+@using SolicitudesShared
+@using MudBlazor
+@using Sistema_de_Seguimiento_de_Solicitudes.Services
+@using System.Text.Json 
+@using Sistema_de_Seguimiento_de_Solicitudes.Models
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject IExpedienteService ExpedienteService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Inicio</PageTitle>
+
+<h1 class="text-center mb-4">Solicitudes Pendientes</h1>
+
+<div class="dashboard-container">
+    <MudGrid Justify="Justify.Center">
+        <!-- Tarjeta Gris -->
+        <MudItem xs="12" sm="4" md="4">
+            <MudCard Class="card card-gray">
+                <MudCardContent @onclick="@(() => ToggleVisibility(4))">
+                    <MudText Typo="Typo.h6" Style="text-align: center;"><strong>@solicitudesGrises.Count Solicitudes</strong></MudText>
+                    <MudText Style="text-align: center;">Vigencia: <strong>Vencidas</strong></MudText>
+                    @if (isVisible[4])
+                    {
+                        <div class="scroll-container">
+                            @foreach (var solicitud in solicitudesGrises)
+                            {
+                                <MudText @onclick="(() => RedirigirADetalles(solicitud.Id))">
+                                    <strong>ID:</strong> @solicitud.Id            |
+                                    <strong>Folio:</strong> @solicitud.Folio      |
+                                    <strong>Nombre:</strong> @solicitud.Nombre    |
+                                    <strong>Fecha:</strong> @solicitud.FechaInicioTramite.ToString("dd/MM/yyyy") |
+                                    <strong>Tiempo restante:</strong> @(GetTiempoRestante(solicitud.FechaInicioTramite)) días
+                                </MudText>
+                            }
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Tarjeta Roja -->
+        <MudItem xs="12" sm="4" md="4">
+            <MudCard Class="card card-red">
+                <MudCardContent @onclick="@(() => ToggleVisibility(2))">
+                    <MudText Typo="Typo.h6" Style="text-align: center;"><strong>@solicitudesRojas.Count Solicitudes</strong></MudText>
+                    <MudText Style="text-align: center;">Vigencia: <strong>Menos de 2 días</strong></MudText>
+                    @if (isVisible[2])
+                    {
+                        <div class="scroll-container">
+                            @foreach (var solicitud in solicitudesRojas)
+                            {
+                                <MudText @onclick="(() => RedirigirADetalles(solicitud.Id))">
+                                    <strong>ID:</strong> @solicitud.Id            |
+                                    <strong>Folio:</strong> @solicitud.Folio      |
+                                    <strong>Nombre:</strong> @solicitud.Nombre    |
+                                    <strong>Fecha:</strong> @solicitud.FechaInicioTramite.ToString("dd/MM/yyyy") |
+                                    <strong>Tiempo restante:</strong> @(GetTiempoRestante(solicitud.FechaInicioTramite)) días
+                                </MudText>
+                            }
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Tarjeta Amarilla -->
+        <MudItem xs="12" sm="4" md="4">
+            <MudCard Class="card card-yellow">
+                <MudCardContent @onclick="@(() => ToggleVisibility(1))">
+                    <MudText Typo="Typo.h6" Style="text-align: center;"><strong>@solicitudesAmarillas.Count Solicitudes</strong></MudText>
+                    <MudText Style="text-align: center;">Vigencia: <strong>Menos de 5 días</strong></MudText>
+                    @if (isVisible[1])
+                    {
+                        <div class="scroll-container">
+                            @foreach (var solicitud in solicitudesAmarillas)
+                            {
+                                <MudText @onclick="(() => RedirigirADetalles(solicitud.Id))">
+                                    <strong>ID:</strong> @solicitud.Id            |
+                                    <strong>Folio:</strong> @solicitud.Folio      |
+                                    <strong>Nombre:</strong> @solicitud.Nombre    |
+                                    <strong>Fecha:</strong> @solicitud.FechaInicioTramite.ToString("dd/MM/yyyy") |
+                                    <strong>Tiempo restante:</strong> @(GetTiempoRestante(solicitud.FechaInicioTramite)) días
+                                </MudText>
+                            }
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Tarjeta Verde -->
+        <MudItem xs="12" sm="4" md="4">
+            <MudCard Class="card card-green">
+                <MudCardContent @onclick="@(() => ToggleVisibility(0))">
+                    <MudText Typo="Typo.h6" Style="text-align: center;"><strong>@solicitudesVerdes.Count Solicitudes</strong></MudText>
+                    <MudText Style="text-align: center;">Vigencia: <strong>Mayor a 6 dias</strong></MudText>
+                    @if (isVisible[0])
+                    {
+                        <div class="scroll-container">
+                            @foreach (var solicitud in solicitudesVerdes)
+                            {
+                                <MudText @onclick="(() => RedirigirADetalles(solicitud.Id))">
+                                    <strong>ID:</strong> @solicitud.Id            |
+                                    <strong>Folio:</strong> @solicitud.Folio      |
+                                    <strong>Nombre:</strong> @solicitud.Nombre    |
+                                    <strong>Fecha:</strong> @solicitud.FechaInicioTramite.ToString("dd/MM/yyyy") |
+                                    <strong>Tiempo restante:</strong> @(GetTiempoRestante(solicitud.FechaInicioTramite)) días
+                                </MudText>
+                            }
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+</div>
+
+@code {
+    private bool[] isVisible = new bool[5];
+
+    // Listas para almacenar las solicitudes
+    private List<Expediente> solicitudesGrises = new();
+    private List<Expediente> solicitudesRojas = new();
+    private List<Expediente> solicitudesAmarillas = new();
+    private List<Expediente> solicitudesVerdes = new();
+
+    //private List<Expediente> ExpedientesFiltrados = new();
+
+    List<ExpedienteDTO>? listaExpedientes = null;
+    private List<ExpedienteDTO> ExpedientesFiltrados { get; set; } = new();
+
+    private ExpedienteDTO NuevoExpediente { get; set; } = new();
+
+    //private Expediente Expediente { get; set; } = new Expediente();
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        listaExpedientes = await ExpedienteService.Lista(); // Recuperar datos de la base de datos en forma de lista
+
+        NuevoExpediente.FechaInicio = DateTime.Now;
+
+        ClasificarSolicitudes();
+    }
+
+    private void ClasificarSolicitudes()
+    {
+        // Limpia las listas para evitar datos duplicados
+        solicitudesGrises.Clear();
+        solicitudesRojas.Clear();
+        solicitudesAmarillas.Clear();
+        solicitudesVerdes.Clear();
+
+        if (listaExpedientes != null)
+        {
+            foreach (var expedienteDTO in listaExpedientes)
+            {
+                // Convertir de ExpedienteDTO a Expediente
+                var expediente = new Expediente
+                    {
+                        Id = expedienteDTO.Id,
+                        Folio = expedienteDTO.Folio ?? string.Empty,
+                        Nombre = expedienteDTO.NombreSolicitante ?? string.Empty,
+                        FechaInicioTramite = expedienteDTO.FechaInicio,
+                        Estatus = expedienteDTO.Estado ?? string.Empty
+                    };
+
+                // Verificar que FechaInicioTramite no sea null
+                if (expediente.FechaInicioTramite != DateTime.MinValue)
+                {
+                    int tiempoRestante = GetTiempoRestante(expediente.FechaInicioTramite);
+                    DateTime? fechaLimite;
+
+					if (expediente.TipoSolicitud == "DAI")
+					{
+						fechaLimite = NuevoExpediente.FechaLimiteRespuesta10dias;
+					}
+					else if (expediente.TipoSolicitud == "ARCO")
+					{
+						fechaLimite = NuevoExpediente.FechaLimiteRespuesta20dias;
+					}
+					else
+					{
+						fechaLimite = DateTime.MinValue; // Valor por defecto si no coincide con ningún tipo
+					}
+
+                    // Si está vencida, se añade a la tarjeta gris
+                    if (tiempoRestante < 0)
+                    {
+                        solicitudesGrises.Add(expediente);
+                    }
+                    // Si tiene menos de 2 días restantes (Tarjeta roja)
+                    else if (tiempoRestante < 3)
+                    {
+                        solicitudesRojas.Add(expediente);
+                    }
+                    // Si está entre 3 y 5 días restantes (Tarjeta amarilla)
+                    else if (tiempoRestante < 6)
+                    {
+                        solicitudesAmarillas.Add(expediente);
+                    }
+                    // Mayor a 6 dias restantes (Tarjeta verde)
+                    else 
+                    {
+                        solicitudesVerdes.Add(expediente);
+                    }
+                }
+            }
+        }
+    }
+
+    // Usuario Observador
+    private async Task<bool> UsuarioEsSoloObservador()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        return user.IsInRole("OBSERVADOR") && !user.IsInRole("ADMINISTRADOR") && !user.IsInRole("CAPTURISTA");
+    }
+
+    private int CalcularDiasHabiles(DateTime fechaInicio)
+    {
+        int diasHabiles = 0;
+        //DateTime fechaInicio = NuevoExpediente.FechaInicio; // Fecha de inicio
+
+		DateTime fechaActual = DateTime.Now; // Fecha actual
+
+        for (DateTime fecha = fechaInicio; fecha <= fechaActual; fecha = fecha.AddDays(1))
+        {
+            if (fecha.DayOfWeek != DayOfWeek.Saturday && fecha.DayOfWeek != DayOfWeek.Sunday)
+            {
+                diasHabiles++;
+            }
+        }
+
+        return diasHabiles;
+    }
+
+    private int GetTiempoRestante(DateTime? fechaInicio)
+    {
+        if (fechaInicio.HasValue)
+        {
+            DateTime fechaVencimiento = fechaInicio.Value.AddDays(30); // Límite de 30 días
+            return (fechaVencimiento - DateTime.Now).Days;
+        }
+        return 0; // Devuelve 0 si la fecha es null
+    }
+
+    private void ToggleVisibility(int index)
+    {
+        isVisible[index] = !isVisible[index];
+    }
+
+    private void RedirigirADetalles(int id)
+    {
+        // Verificar que listaExpedientes no sea null
+        if (listaExpedientes != null)
+        {
+            // Busca el expediente en la lista de expedientes
+            var expediente = listaExpedientes.FirstOrDefault(e => e.Id == id);
+            if (expediente != null)
+            {
+                // Asegúrate de que la ruta esté correcta
+                Navigation.NavigateTo($"/menu/modulo-solicitudes/indice-expedientes/detalles/{id}/{expediente.Folio}");
+            }
+        }
+        else
+        {
+            // Manejar el caso en que listaExpedientes sea null (opcional)
+            Console.WriteLine("La lista de expedientes es null.");
+        }
+    }
+}
+
+
+<style> /*    No quitar Style, no lo detecta en razor.css    */
+    .mud-text {
+        text-align: center;
+    }
+
+    .dashboard-container {
+        padding: 20px;
+    }
+
+    .card {
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        border-radius: 10px;
+        padding: 16px;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+        cursor: pointer; /* Cambia el cursor para indicar que se puede hacer clic */
+    }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+        }
+
+    h1 {
+        font-size: 2rem;
+        color: #333;
+    }
+
+    .card .mud-text {
+        color: #555;
+    }
+
+    /* Colores para las tarjetas */
+    .card-green {
+        background-color: #d4edda;
+    }
+
+    .card-yellow {
+        background-color: #fff3cd;
+    }
+
+    .card-red {
+        background-color: #f8d7da;
+    }
+
+    .card-gray {
+        background-color: #dcdcdc;
+    }
+
+    /* Estilo para la lista scrollable */
+    .scroll-container {
+        max-height: 150px;
+        overflow-y: auto;
+        margin-top: 10px;
+        padding-right: 8px;
+    }
+
+        /* Barra de desplazamiento minimalista */
+        .scroll-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .scroll-container::-webkit-scrollbar-thumb {
+            background-color: #888;
+            border-radius: 10px;
+        }
+
+            .scroll-container::-webkit-scrollbar-thumb:hover {
+                background-color: #555;
+            }
+
+        /* Estilo para cada solicitud */
+        .scroll-container .mud-text {
+            padding: 8px 12px; /* Espaciado interno */
+            border-bottom: 1px solid #ddd; /* Separador ligero */
+            transition: background-color 0.2s ease;
+        }
+
+            /* Eliminar borde inferior en la última solicitud */
+            .scroll-container .mud-text:last-child {
+                border-bottom: none;
+            }
+
+            /* Hover para resaltar cada solicitud */
+            .scroll-container .mud-text:hover {
+                background-color: #f9f9f9;
+                cursor: pointer;
+            }
+
+</style>

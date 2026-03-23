@@ -1,0 +1,577 @@
+﻿@page "/menu/modulo-solicitudes/Calendario"
+
+@attribute [Authorize]
+@*@attribute [Authorize(Roles = "ADMINISTRADOR,CAPTURISTA,OBSERVADOR")]*@
+
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Authorization
+@using Sistema_de_Seguimiento_de_Solicitudes.Models
+@using Sistema_de_Seguimiento_de_Solicitudes.Services
+@using Radzen
+@using System.Text.Json
+@using SolicitudesShared
+@using System.Security.Claims
+
+@inject DialogService DialogService
+@inject IExpedienteService ExpedienteService
+@inject ICalendarioService CalendarioService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+
+<PageTitle>Calendario</PageTitle>
+
+<div class="calendar-container">
+    <div class="controls-bar">
+        <RadzenLabel Text="Mostrar encabezado:" />
+        <RadzenSwitch @bind-Value="@showHeader" />
+        <RadzenButton Text="Ver vencimientos"
+                      Style="background-color: #0d6efd; color: white;"
+                      Click="@MostrarEventosPorVencimiento"
+                      Icon="event" />
+
+        @if (esAdminOSupervision)
+        {
+            <RadzenDatePicker @bind-Value="@fechaSeleccionada"
+            DateFormat="dd/MM/yyyy"
+            Placeholder="dd/mm/yyyy"
+            Style="width: 200px; text-align-last: center;" />
+
+            <RadzenButton Text="Activar/Desactivar día"
+            Style="background-color: #198754; color: white;"
+            Click="@ToggleDiaManual" />
+        }
+    </div>
+
+    <RadzenScheduler @ref="@scheduler"
+    SlotRender="@OnSlotRender"
+    style="height: 100%; width: 100%;"
+    TItem="EventoSolicitud"
+    Data="@eventos"
+    StartProperty="Start"
+    EndProperty="End"
+    ShowHeader="@showHeader"
+    TextProperty="Title"
+    SelectedIndex="2"
+    AppointmentRender="@OnAppointmentRender">
+        <RadzenDayView />
+        <RadzenWeekView />
+        <RadzenMonthView />
+    </RadzenScheduler>
+</div>
+
+@* <EventConsole @ref=@console /> *@
+
+@code {
+    RadzenScheduler<EventoSolicitud>? scheduler;
+    // EventConsole console;
+    Dictionary<DateTime, string> events = new Dictionary<DateTime, string>();
+
+    bool showHeader = true;
+
+    // Rol
+    private ClaimsPrincipal usuarioActual;
+    private bool esAdminOSupervision;
+
+    private List<EventoSolicitud> eventos = new List<EventoSolicitud>();
+
+    // datepickker variables
+    DateTime? fechaSeleccionada;
+    List<DateTime> diasApagadosManualmente = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Rol
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        usuarioActual = authState.User;
+
+        esAdminOSupervision = usuarioActual.IsInRole("ADMINISTRADOR") || usuarioActual.IsInRole("SUPERVISIÓN");
+
+        var expedienteList = await ExpedienteService.Lista();
+
+        diasApagadosManualmente = (await CalendarioService.ObtenerDiasInhabiles())
+            .Select(d => d.Fecha.Date)
+            .ToList();
+
+        // eventos = expedienteList
+        //     .Where(expediente => expediente?.FechaInicio != null)
+        //     .Select(expediente =>
+        //     {
+        //         int diasRequeridos = expediente.TipoSolicitud == "ARCO" ? 20 : 10;
+        //         DateTime inicio = expediente.FechaInicio;
+        //         DateTime end = CalcularFechaLimite(inicio, diasRequeridos);
+
+        //         return new EventoSolicitud
+        //             {
+        //                 Title = $"{expediente.Folio} – {expediente.NombreSolicitante}",
+        //                 Start = inicio,
+        //                 End = end,
+        //                 TipoSolicitud = expediente.TipoSolicitud!,
+        //                 TienePrevencion = false,
+        //                 EsUrgente = false
+        //             };
+        //     }).ToList();
+
+        eventos = expedienteList
+            .Where(expediente => expediente?.FechaInicio != null)
+            .Select(expediente =>
+             {
+                 DateTime inicio = expediente.FechaInicio;
+
+                 // Prioriza Prevención > Ampliación > Normal
+                 DateTime? fechaFin = null;
+
+                 if (expediente.Prevencion == true && expediente.FechaLimitePrevencion10dias.HasValue)
+                 {
+                     fechaFin = expediente.FechaLimitePrevencion10dias.Value;
+                 }
+                 else if (expediente.Ampliacion == "SI" && expediente.FechaLimiteRespuesta20dias.HasValue)
+                 {
+                     fechaFin = expediente.FechaLimiteRespuesta20dias.Value;
+                 }
+                 else if (expediente.FechaLimiteRespuesta10dias.HasValue)
+                 {
+                     fechaFin = expediente.FechaLimiteRespuesta10dias.Value;
+                 }
+                 else if (expediente.FechaLimiteRespuesta20dias.HasValue)
+                 {
+                     fechaFin = expediente.FechaLimiteRespuesta20dias.Value;
+                 }
+
+                 return new EventoSolicitud
+                    {
+                        Title = $"{expediente.Folio} – {expediente.NombreSolicitante}",
+                        Start = inicio,
+                        End = fechaFin.Value/* .AddDays(1) */,
+                        TipoSolicitud = expediente.TipoSolicitud!,
+                        TienePrevencion = expediente.Prevencion,
+                        EsUrgente = false
+                    };
+             }).ToList();
+
+    }
+
+
+    // Método para habilitar/deshabilitar un día específico    
+    async Task ToggleDiaManual()
+    {
+        if (fechaSeleccionada.HasValue)
+        {
+            var fecha = fechaSeleccionada.Value.Date;
+
+            if (diasApagadosManualmente.Contains(fecha))
+            {
+                diasApagadosManualmente.Remove(fecha); // lo vuelve laborable
+                await CalendarioService.EliminarDiaInhabil(fecha); // eliminar el día inhabil
+            }
+            else
+            {
+                diasApagadosManualmente.Add(fecha); // lo marca como apagado
+                await CalendarioService.GuardarDiaInhabil(new DiaInhabilManualDTO { Fecha = fecha }); // guardar el día inhabil
+            }
+
+            // 🔁 Recalcular eventos considerando los nuevos días inhabilitados
+            var expedienteList = await ExpedienteService.Lista();
+
+            diasApagadosManualmente = (await CalendarioService.ObtenerDiasInhabiles())
+            .Select(d => d.Fecha.Date)
+            .ToList();
+
+            eventos = expedienteList
+                .Where(expediente => expediente?.FechaInicio != null)
+                .Select(expediente =>
+                {
+                    DateTime inicio = expediente.FechaInicio;
+
+                    // Prioriza Prevención > Ampliación > Normal
+                    DateTime? fechaFin = null;
+
+                    if (expediente.Prevencion == true && expediente.FechaLimitePrevencion10dias.HasValue)
+                    {
+                        fechaFin = expediente.FechaLimitePrevencion10dias.Value;
+                    }
+                    else if (expediente.Ampliacion == "SI" && expediente.FechaLimiteRespuesta20dias.HasValue)
+                    {
+                        fechaFin = expediente.FechaLimiteRespuesta20dias.Value;
+                    }
+                    else if (expediente.FechaLimiteRespuesta10dias.HasValue)
+                    {
+                        fechaFin = expediente.FechaLimiteRespuesta10dias.Value;
+                    }
+                    else if (expediente.FechaLimiteRespuesta20dias.HasValue)
+                    {
+                        fechaFin = expediente.FechaLimiteRespuesta20dias.Value;
+                    }
+
+                    return new EventoSolicitud
+                        {
+                            Title = $"{expediente.Folio} – {expediente.NombreSolicitante}",
+                            Start = inicio,
+                            End = fechaFin.Value/* .AddDays(1) */,
+                            TipoSolicitud = expediente.TipoSolicitud!,
+                            TienePrevencion = expediente.Prevencion,
+                            EsUrgente = false
+                        };
+                }).ToList();
+
+            
+
+            scheduler?.Reload(); // Recargar el calendario para reflejar los cambios
+        }
+    }
+
+
+    // Mostrar Eventos por Vencimiento
+    async Task MostrarEventosPorVencimiento()
+    {
+        var hoy = DateTime.Now.Date;
+
+        var eventosVencidos = eventos
+            .Where(e => CalcularDiasHabiles(hoy, e.End.Date) < 6)
+            .OrderBy(e => CalcularDiasHabiles(hoy, e.End.Date))
+            .ToList();
+
+        await DialogService.OpenAsync<VerEventosVencimiento>("Vencimiento de Solicitudes", new Dictionary<string, object>
+    {
+        { "Eventos", eventosVencidos }
+    }, new DialogOptions { Width = "1000px", Height = "700px" });
+    }
+
+
+    // Lista de días festivos
+    private readonly List<DateTime> diasFestivos = new List<DateTime>
+    {
+        new DateTime(DateTime.Now.Year, 1, 1),    // Año Nuevo
+        new DateTime(DateTime.Now.Year, 2, 5),    // Día de la Constitución
+        new DateTime(DateTime.Now.Year, 3, 21),   // Natalicio de Benito Juárez
+        new DateTime(DateTime.Now.Year, 5, 1),    // Día del Trabajo
+        new DateTime(DateTime.Now.Year, 9, 16),   // Día de la Independencia
+        new DateTime(DateTime.Now.Year, 11, 2),   // Día de Muertos  
+        new DateTime(DateTime.Now.Year, 11, 20),  // Día de la Revolución Mexicana
+        new DateTime(DateTime.Now.Year, 12, 12),  // Día de la Virgen de Guadalupe 
+        new DateTime(DateTime.Now.Year, 12, 25),  // Navidad
+        new DateTime(DateTime.Now.Year, 12, 24),  // Nochebuena
+        new DateTime(DateTime.Now.Year, 12, 31)   // Fin de año
+    };
+
+    // Método para determinar si una fecha es laborable
+    private bool EsDiaLaborable(DateTime fecha)
+    {
+        // No es laborable si es fin de semana, festivo o si se desactiva el dia
+        return fecha.DayOfWeek != DayOfWeek.Saturday &&
+               fecha.DayOfWeek != DayOfWeek.Sunday &&
+               !diasFestivos.Contains(fecha.Date) &&
+               !diasApagadosManualmente.Contains(fecha.Date);
+    }
+
+    // Método para calcular días hábiles entre dos fechas
+    private int CalcularDiasHabiles(DateTime inicio, DateTime fin)
+    {
+        // int dias = 0;
+
+        // if (inicio <= fin)
+        // {
+        //     for (DateTime fecha = inicio; fecha <= fin; fecha = fecha.AddDays(1))
+        //     {
+        //         if (EsDiaLaborable(fecha))
+        //         {
+        //             dias++;
+        //         }
+        //     }
+        // }
+        // else
+        // {
+        //     for (DateTime fecha = inicio; fecha >= fin; fecha = fecha.AddDays(-1))
+        //     {
+        //         if (EsDiaLaborable(fecha))
+        //         {
+        //             dias--;
+        //         }
+        //     }
+        // }
+
+        // return dias;
+
+        int dias = 0;
+        DateTime fecha = inicio;
+
+        int step = fin >= inicio ? 1 : -1;
+        DateTime endDate = fin.AddDays(step); // Incluir el día final
+
+        while (fecha != endDate)
+        {
+            if (EsDiaLaborable(fecha)) dias += step;
+            fecha = fecha.AddDays(step);
+        }
+
+        return Math.Abs(dias);
+    }
+
+    // Método para calcular la fecha límite considerando días hábiles
+    // private DateTime CalcularFechaLimite(DateTime inicio, int diasHabilesRequeridos)
+    // {
+    //     int diasContados = 0;
+    //     DateTime fecha = inicio;
+
+    //     while (diasContados < diasHabilesRequeridos)
+    //     {
+    //         fecha = fecha.AddDays(1);
+    //         if (EsDiaLaborable(fecha))
+    //         {
+    //             diasContados++;
+    //         }
+    //     }
+
+    //     return fecha;
+    // }
+
+    void OnAppointmentRender(SchedulerAppointmentRenderEventArgs<EventoSolicitud> args)
+    {
+        // Calcular días hábiles restantes
+        var fechaLimiteReal = args.Data.End.Date.AddDays(-1);
+        var diasHabilesRestantes = CalcularDiasHabiles(DateTime.Now.Date, fechaLimiteReal);
+
+        // Determinar clase según tipo de solicitud
+        string tipo = args.Data.TipoSolicitud?.ToUpperInvariant()?.Trim() ?? "";
+        string tipoClase = tipo switch
+        {
+            "ARCO" => "event-arco tooltip-arco tooltip-wrapper",
+            "DAI" => "event-dai tooltip-dai tooltip-wrapper",
+            "" => "event-sintipo tooltip-sintipo tooltip-wrapper", // tipo vacío
+            _ => "event-especial" // sin tooltip
+        };
+
+        // Determinar clase según urgencia
+        string estadoClase = diasHabilesRestantes switch
+        {
+            var d when d < 0 => "event-gris",
+            var d when d < 3 => "event-roja",
+            var d when d < 6 => "event-amarilla",
+            var d when d < 100 => "event-verde",
+            _ => tipoClase
+        };
+
+        // Tipo de tooltip según tipo de solicitud
+        string tooltipClase = tipo switch
+        {
+            "ARCO" => "tooltip-arco",
+            "DAI" => "tooltip-dai",
+            "" => "tooltip-sintipo",
+            _ => ""
+        };
+        
+        args.Attributes["class"] = $"{estadoClase} tooltip-wrapper {tooltipClase}";
+
+
+        // Tooltip con información detallada
+        args.Attributes["data-tooltip"] = $"{args.Data.Title}\n" +
+                                  $"Tipo: {args.Data.TipoSolicitud}\n" +
+                                  $"Inicio: {args.Data.Start:dd/MM/yyyy}\n" +
+                                  $"Fin: {args.Data.End:dd/MM/yyyy}\n" +
+                                  $"Días hábiles restantes: {diasHabilesRestantes}";
+
+    }
+
+    void OnSlotRender(SchedulerSlotRenderEventArgs args)
+    {
+        string clases = "";
+
+        // 1. Día actual
+        if (args.Start.Date == DateTime.Today.Date)
+        {
+            clases += " dia-actual";
+        }
+
+        // 2. Día no laborable
+        if (!EsDiaLaborable(args.Start.Date) || diasApagadosManualmente.Contains(args.Start.Date))
+        {
+            clases += " rz-scheduler-non-working-time-cell";
+        }
+
+        // 3. Estilo solo para vistas Day y Week (horarios laborales)
+        if ((args.View.Text == "Week" || args.View.Text == "Day") &&
+            args.Start.Hour > 8 && args.Start.Hour < 19)
+        {
+            args.Attributes["style"] = "background: var(--rz-scheduler-highlight-background-color, rgba(255jose,220,40,.2));";
+        }
+
+        if (!string.IsNullOrWhiteSpace(clases))
+        {
+            args.Attributes["class"] = (args.Attributes.ContainsKey("class") ? args.Attributes["class"] + " " : "") + clases.Trim();
+        }
+
+        // if (diasApagadosManualmente.Contains(args.Start.Date))
+        // {
+        //     args.Attributes["class"] += " rz-scheduler-non-working-time-cell";
+        //     args.Attributes["style"] = "background-color: #ffe6e6;"; // Color personalizado
+        // }
+    }
+
+}
+
+<style>
+    /* Estructura principal */
+    .calendar-container {
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 120px);
+        padding: 1rem;
+        background-color: #f8f9fa;
+    }
+
+    /* Barra de controles */
+    .controls-bar {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background-color: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e2e8f0;
+    }
+
+    /* Scheduler principal */
+    .rz-scheduler {
+        flex: 1;
+        background-color: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border: 1px solid #e2e8f0;
+        overflow: hidden;
+    }
+
+    .dia-actual {
+        position: relative;
+        background-color: rgba(13, 110, 253, 0.15) !important;
+        z-index: 2;
+        pointer-events: none;
+        border-right: 1px solid #0d6efd !important;
+        border-left: 1px solid #0d6efd !important;
+    }
+
+    /* Días no laborables (festivos y fines de semana) */
+    .rz-scheduler-non-working-time-cell {
+        background-color: rgba(248, 249, 250, 0.7) !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-top: none !important;
+        border-bottom: none !important;
+        position: relative;
+    }
+
+        .rz-scheduler-non-working-time-cell::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: repeating-linear-gradient( 45deg, transparent, transparent 2px, rgba(0, 0, 0, 0.05) 2px, rgba(0, 0, 0, 0.05) 4px );
+            pointer-events: none;
+        }
+
+    .rz-dialog-content,
+    .rz-dialog {
+        overflow: visible !important;
+    }
+
+    /* Estados de vencimiento */
+    /* VERDE */
+    .event-verde {
+        background-color: #d4edda !important;
+        border-left-color: #28a745 !important;
+    }
+
+    /* AMARILLO */
+    .event-amarilla {
+        background-color: #fff3cd !important;
+        border-left-color: #ffc107 !important;
+    }
+
+    /* ROJO */
+    .event-roja {
+        background-color: #f8d7da !important;
+        border-left-color: #dc3545 !important;
+    }
+
+    /* GRIS */
+    .event-gris {
+        background-color: #e2e3e5 !important;
+        border-left-color: #6c757d !important;
+    }
+
+    /* Eventos - Estilo base con degradado superior */
+    .tooltip-wrapper {
+        position: relative;
+    }
+
+        .tooltip-wrapper::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            display: block;
+            background-color: #495057;
+            color: white;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.75rem;
+            white-space: pre-line;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            z-index: 1000;
+            min-width: 250px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .tooltip-wrapper::before {
+            content: "";
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 6px;
+            border-style: solid;
+            border-color: transparent transparent #495057 transparent;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 999;
+        }
+
+        /* Mostrar tooltip al pasar el mouse */
+        .tooltip-wrapper:hover::after,
+        .tooltip-wrapper:hover::before {
+            opacity: 1;
+        }
+
+        /* Colores dinámicos por tipo */
+        .tooltip-wrapper.tooltip-arco::after {
+            background-color: #387fe7;
+        }
+
+        .tooltip-wrapper.tooltip-arco::before {
+            border-color: transparent transparent #0d6efd transparent;
+        }
+
+        .tooltip-wrapper.tooltip-dai::after {
+            background-color: #7841dd;
+        }
+
+        .tooltip-wrapper.tooltip-dai::before {
+            border-color: transparent transparent #6f42c1 transparent;
+        }
+
+        .tooltip-wrapper.tooltip-sintipo::after {
+            background-color: #575656;
+        }
+
+        .tooltip-wrapper.tooltip-sintipo::before {
+            border-color: transparent transparent #dadada transparent;
+        }
+
+    
+</style>

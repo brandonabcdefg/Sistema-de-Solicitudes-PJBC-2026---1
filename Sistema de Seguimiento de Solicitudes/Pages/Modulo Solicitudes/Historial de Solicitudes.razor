@@ -1,0 +1,379 @@
+﻿@page "/menu/modulo-solicitudes/historial-solicitudes"
+
+@attribute [Authorize]
+
+@using Microsoft.AspNetCore.Authorization
+@using Sistema_de_Seguimiento_de_Solicitudes.Services
+@using SolicitudesShared
+@using ClosedXML.Excel;
+@using System.Globalization;
+
+
+@inject IExpedienteService ExpedienteService
+@inject IJSRuntime JSRuntime
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject HttpClient Http
+
+<div class="historial-container">
+    <h3>📁 Historial de Solicitudes</h3>
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <!-- Campo de Busqueda -->
+            <input type="text" class="form-control" placeholder="🔍 Buscar por nombre o folio..." @bind="busqueda" @bind:event="oninput" />
+        </div>
+        <div class="col-md-2">
+            <select class="form-control" @bind="estadoSeleccionado">
+                <option value="">🗂️ Todos los estados</option>
+                <option value="INICIO">🟦 Inicio</option>
+                <option value="PROCESO">🔄 Proceso</option>
+                <option value="EN PREVENCIÓN">📋 En Prevención</option>
+                <option value="EN AMPLIACIÓN">⏳ En Ampliación</option>
+                <option value="TERMINADA">✅ Terminada</option>
+                <option value="DESECHADA">❌ Desechada</option>
+                <option value="CANCELADA">⚠️ Cancelada</option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <input class="form-control" type="date" @bind="filtroFechaDia" />
+        </div>
+        <div class="col-md-1">
+            <select class="form-control" @bind="filtroMes">
+                <option value="">Mes</option>
+                @for (int m = 1; m <= 12; m++)
+                {
+                    <option value="@m">@System.Globalization.CultureInfo.GetCultureInfo("es-MX").DateTimeFormat.GetMonthName(m)</option>
+                }
+            </select>
+        </div>
+
+        <div class="col-md-1">
+            <select class="form-control" @bind="filtroAno">
+                <option value="">Año</option>
+                @foreach (var Ano in AnosDisponibles)
+                {
+                    <option value="@Ano">@Ano</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-success w-100" @onclick="DescargarExcel">
+                📤 Descargar Excel
+            </button>
+
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>DETALLES</th>
+                    <th>ID</th>
+                    <th>FOLIO</th>
+                    <th>NOMBRE</th>
+                    <th>FECHA DE INICIO</th>
+                    <th>ESTADO</th>
+                </tr>
+            </thead>
+            <tbody>
+                @if (SolicitudesFiltradas.Any())
+                {
+                    @foreach (var solicitud in PagedExpedientes)
+                    {
+                        <tr>
+                            <td>
+                                <button class="btn-detalles" @onclick="() => VerDetalle(solicitud.Id, solicitud.Folio ?? string.Empty)"> 🔍 Ver Detalles </button>
+                            </td>
+                            <td>@solicitud.Id</td>
+                            <td>@solicitud.Folio</td>
+                            <td>@solicitud.NombreSolicitante</td>
+                            <td>@solicitud.FechaInicio.ToString("dd/MM/yyyy")</td>
+                            <td>
+                                <span class="badge @GetEstadoClass(solicitud.Estado ?? string.Empty)">
+                                    @solicitud.Estado
+                                </span>
+                            </td>
+                        </tr>
+                    }
+                }
+                else
+                {
+                    <tr>
+                        <td colspan="6" class="text-center">No hay resultados para tu búsqueda.</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <div class="d-flex justify-content-center align-items-center mt-3" style="padding-bottom: 16px">
+        <button class="btn btn-primary mx-2" @onclick="PrevPage" disabled="@(currentPage <= 1)">
+            Anterior
+        </button>
+        <span>Página @currentPage de @totalPages</span>
+        <button class="btn btn-primary mx-2" @onclick="NextPage" disabled="@(currentPage >= totalPages)">
+            Siguiente
+        </button>
+    </div>
+</div>
+
+@code {
+    private List<ExpedienteDTO> SolicitudesHistorial = new();
+    private string busqueda = string.Empty;
+    private string estadoSeleccionado = string.Empty;
+
+    private int currentPage = 1;
+    private int pageSize = 12;
+
+    private IEnumerable<ExpedienteDTO> SolicitudesFiltradas =>
+    SolicitudesHistorial.Where(s =>
+        (string.IsNullOrWhiteSpace(busqueda) ||
+            (!string.IsNullOrEmpty(s.NombreSolicitante) && s.NombreSolicitante.Contains(busqueda, StringComparison.OrdinalIgnoreCase)) ||
+            (!string.IsNullOrEmpty(s.Folio) && s.Folio.Contains(busqueda, StringComparison.OrdinalIgnoreCase)))
+        &&
+        (string.IsNullOrWhiteSpace(estadoSeleccionado) || s.Estado == estadoSeleccionado)
+        &&
+        (!filtroFechaDia.HasValue || s.FechaInicio.Date == filtroFechaDia.Value.Date)
+        &&
+        (!filtroMes.HasValue || s.FechaInicio.Month == filtroMes)
+        &&
+        (!filtroAno.HasValue || s.FechaInicio.Year == filtroAno)
+    );
+
+    private IEnumerable<ExpedienteDTO> PagedExpedientes =>
+        SolicitudesFiltradas
+            .OrderByDescending(e => e.Id)
+            .Skip((currentPage - 1) * pageSize)
+            .Take(pageSize);
+
+    private int totalPages =>
+        SolicitudesFiltradas.Any() ? (SolicitudesFiltradas.Count() + pageSize - 1) / pageSize : 1;
+
+    // Seleccionar por dia, mes y año
+    private DateTime? filtroFechaDia;
+    private int? filtroMes;
+    private int? filtroAno;
+
+    private List<int> AnosDisponibles => SolicitudesHistorial
+        .Select(s => s.FechaInicio.Year)
+        .Distinct()
+        .OrderByDescending(x => x)
+        .ToList();
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        var todas = await ExpedienteService.Lista();
+        SolicitudesHistorial = todas
+            .Where(e => new[] { "INICIO", "PROCESO", "EN PREVENCIÓN", "EN AMPLIACIÓN", "TERMINADA", "DESECHADA", "CANCELADA" }.Contains(e.Estado))
+            .OrderByDescending(e => e.FechaInicio)
+            .ToList();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            pageSize = await JSRuntime.InvokeAsync<int>("getPageSizeBasedOnResolution");
+            StateHasChanged();
+        }
+    }
+
+    private void VerDetalle(int id, string folio)
+    {
+        Navigation.NavigateTo($"/menu/modulo-solicitudes/indice-expedientes/detalles/{id}/{folio}");
+    }
+
+    private string GetEstadoClass(string estado) => estado switch
+    {
+        "INICIO" => "badge-info",
+        "PROCESO" => "badge-primary",
+        "EN PREVENCIÓN" => "badge-warning",
+        "EN AMPLIACIÓN" => "badge-light",
+        "TERMINADA" => "badge-success",
+        "DESECHADA" => "badge-danger",
+        "CANCELADA" => "badge-dark",
+        _ => "badge-secondary"
+    };
+
+    private async Task DescargarExcel()
+    {
+        var estado = string.IsNullOrWhiteSpace(estadoSeleccionado) ? "TODOS_LOS_ESTADOS" : estadoSeleccionado.Replace(" ", "_");
+        var hora = DateTime.Now.ToString("HH꞉mm꞉ss");
+
+        string fechaFiltro;
+
+        if (filtroFechaDia.HasValue)
+        {
+            fechaFiltro = filtroFechaDia.Value.ToString("dd-MM-yyyy");
+        }
+        else if (filtroMes.HasValue && filtroAno.HasValue)
+        {
+            var mesNombre = System.Globalization.CultureInfo.GetCultureInfo("es-MX").DateTimeFormat.GetMonthName(filtroMes.Value);
+            fechaFiltro = $"{mesNombre}-{filtroAno}";
+        }
+        else if (filtroAno.HasValue)
+        {
+            fechaFiltro = filtroAno.Value.ToString();
+        }
+        else
+        {
+            var mesNombreActual = System.Globalization.CultureInfo.GetCultureInfo("es-MX").DateTimeFormat.GetMonthName(DateTime.Now.Month);
+            fechaFiltro = $"{mesNombreActual}-{DateTime.Now.Year}";
+        }
+
+        var nombre = $"Reporte_{estado}_{fechaFiltro}_{hora}.xlsx";
+        var base64 = await ObtenerExcelComoBase64();
+
+        await JS.InvokeVoidAsync("excelFunctions.descargarExcel", nombre, base64);
+    }
+
+
+    private async Task<string> ObtenerExcelComoBase64()
+    {
+        using var workbook = new XLWorkbook();
+        var worksheet = workbook.Worksheets.Add("Solicitudes");
+
+        AgregarTituloYEncabezado(worksheet);
+        AgregarDatosSolicitudes(worksheet);
+
+        worksheet.Columns().AdjustToContents();
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        stream.Seek(0, SeekOrigin.Begin);
+        return Convert.ToBase64String(stream.ToArray());
+    }
+
+    private void AgregarTituloYEncabezado(IXLWorksheet worksheet)
+    {
+        var estado = string.IsNullOrWhiteSpace(estadoSeleccionado) ? "TODOS LOS ESTADOS" : estadoSeleccionado;
+        string fechaFiltro;
+
+        if (filtroFechaDia.HasValue)
+            fechaFiltro = filtroFechaDia.Value.ToString("dd/MM/yyyy");
+        else if (filtroMes.HasValue && filtroAno.HasValue)
+            fechaFiltro = $"{CultureInfo.GetCultureInfo("es-MX").DateTimeFormat.GetMonthName(filtroMes.Value)} {filtroAno}";
+        else if (filtroAno.HasValue)
+            fechaFiltro = filtroAno.Value.ToString();
+        else
+            fechaFiltro = $"{CultureInfo.GetCultureInfo("es-MX").DateTimeFormat.GetMonthName(DateTime.Now.Month)} {DateTime.Now.Year}";
+
+        worksheet.Cell("A1").Value = $"📋 Reporte de Solicitudes - Estado: {estado} - Filtro: {fechaFiltro}";
+        worksheet.Range("A1:AK1").Merge().Style
+            .Font.SetBold()
+            .Font.SetFontSize(18)
+            .Font.SetFontColor(XLColor.White)
+            .Fill.SetBackgroundColor(XLColor.BlueGray)
+            .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center)
+            .Alignment.SetVertical(XLAlignmentVerticalValues.Center);
+
+        worksheet.Cell("A2").Value = $"Generado el: {DateTime.Now:dd/MM/yyyy HH:mm:ss}";
+        worksheet.Range("A2:AK2").Merge().Style
+            .Font.SetItalic()
+            .Font.SetFontSize(11)
+            .Font.SetFontColor(XLColor.White)
+            .Fill.SetBackgroundColor(XLColor.BlueGray)
+            .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+
+        var headers = new[] {
+        "ID", "Folio", "Año Admisión", "Mes Admisión", "Tipo Solicitud", "Tipo Derecho", "Nombre Solicitante",
+        "Fecha Inicio", "Límite 10 días", "Ampliación", "Sesión Ampliación", "Fecha Sesión",
+        "Límite 20 días", "Estado", "Fecha Respuesta", "Promedio Días", "¿Prevención?", "Subsanación",
+        "Límite Prevención", "Recibida", "Recepción Manual", "Modo Respuesta", "Correo", "Contenido",
+        "Área Poseedora", "Materia", "Ciudad", "Temática", "Temática Específica", "Sentido Respuesta",
+        "Precisión Sentido", "Entrega", "Cobro", "Recurso", "N° Recurso", "Datos Recurso", "Nota"
+    };
+
+        var headerRow = worksheet.Row(4);
+        for (int i = 0; i < headers.Length; i++)
+        {
+            var cell = worksheet.Cell(4, i + 1);
+            cell.Value = headers[i];
+            cell.Style
+                .Font.SetBold()
+                .Font.SetFontSize(16)
+                .Font.SetFontColor(XLColor.White)
+                .Fill.SetBackgroundColor(XLColor.DarkBlue)
+                .Border.SetOutsideBorder(XLBorderStyleValues.Thin)
+                .Alignment.SetHorizontal(XLAlignmentHorizontalValues.Center);
+        }
+
+        // Aplicar autofiltro a la fila de encabezados
+        worksheet.Range(4, 1, 4, headers.Length).SetAutoFilter();
+    }
+
+
+    private void AgregarDatosSolicitudes(IXLWorksheet worksheet)
+    {
+        int row = 5;
+        foreach (var s in SolicitudesFiltradas)
+        {
+            worksheet.Cell(row, 1).Value = s.Id;
+            worksheet.Cell(row, 2).Value = s.Folio;
+            worksheet.Cell(row, 3).Value = s.AnoAdmision;
+            worksheet.Cell(row, 4).Value = s.MesAdmision;
+            worksheet.Cell(row, 5).Value = s.TipoSolicitud;
+            worksheet.Cell(row, 6).Value = s.TipoDerecho;
+            worksheet.Cell(row, 7).Value = s.NombreSolicitante;
+            worksheet.Cell(row, 8).Value = s.FechaInicio.ToString("dd/MM/yyyy");
+            worksheet.Cell(row, 9).Value = s.FechaLimiteRespuesta10dias?.ToString("dd/MM/yyyy");
+            worksheet.Cell(row, 10).Value = s.Ampliacion;
+            worksheet.Cell(row, 11).Value = s.NumeroSesionComiteAmpliacion;
+            worksheet.Cell(row, 12).Value = s.FechaSesionComiteAmpliacion?.ToString("dd/MM/yyyy");
+            worksheet.Cell(row, 13).Value = s.FechaLimiteRespuesta20dias?.ToString("dd/MM/yyyy");
+            worksheet.Cell(row, 14).Value = s.Estado;
+            worksheet.Cell(row, 15).Value = s.FechaRespuesta?.ToString("dd/MM/yyyy");
+            worksheet.Cell(row, 16).Value = s.PromedioDiasRespuesta;
+            worksheet.Cell(row, 17).Value = s.Prevencion ? "Sí" : "No";
+            worksheet.Cell(row, 18).Value = s.SubsanaPrevencionReinicoTramite;
+            worksheet.Cell(row, 19).Value = s.FechaLimitePrevencion10dias?.ToString("dd/MM/yyyy");
+            worksheet.Cell(row, 20).Value = s.RecibidaRegistrada;
+            worksheet.Cell(row, 21).Value = s.MedioRecepcionSolicitudManual;
+            worksheet.Cell(row, 22).Value = s.ComoDeseaRecibirRespuestaPersonaSolicitante;
+            worksheet.Cell(row, 23).Value = s.CorreoElectronicoSolicitante;
+            worksheet.Cell(row, 24).Value = s.ContenidoSolicitud;
+            worksheet.Cell(row, 25).Value = s.AreaPoseedoraInformacion;
+            worksheet.Cell(row, 26).Value = s.Materia;
+            worksheet.Cell(row, 27).Value = s.CiudadSolicitante;
+            worksheet.Cell(row, 28).Value = s.Tematica;
+            worksheet.Cell(row, 29).Value = s.TematicaEspecifica;
+            worksheet.Cell(row, 30).Value = s.SentidoRespuesta;
+            worksheet.Cell(row, 31).Value = s.PrecisionSentidoRespuesta;
+            worksheet.Cell(row, 32).Value = s.ModalidadEntrega;
+            worksheet.Cell(row, 33).Value = s.Cobro;
+            worksheet.Cell(row, 34).Value = s.RecursoRevision;
+            worksheet.Cell(row, 35).Value = s.NumeroRecursoRevision;
+            worksheet.Cell(row, 36).Value = s.DatosRecursoRevision;
+            worksheet.Cell(row, 37).Value = s.Nota;
+
+            // Borde a cada fila
+            for (int col = 1; col <= 37; col++)
+            {
+                worksheet.Cell(row, col).Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            }
+
+            row++;
+        }
+    }
+
+    // Paginacion
+    private void PrevPage()
+    {
+        if (currentPage > 1)
+        {
+            currentPage--;
+            StateHasChanged();
+        }
+    }
+
+    private void NextPage()
+    {
+        if (currentPage < totalPages)
+        {
+            currentPage++;
+            StateHasChanged();
+        }
+    }
+}

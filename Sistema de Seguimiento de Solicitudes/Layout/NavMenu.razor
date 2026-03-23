@@ -1,0 +1,99 @@
+﻿@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavManager
+
+@attribute [Authorize]
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/menu">Transparencia</a>
+        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+    </div>
+</div>
+
+<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+    <nav class="flex-column">
+
+        @* ---- Módulo de Solicitudes ---- *@
+        @if (EnModuloSolicitudes)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/menu/modulo-solicitudes/indice-expedientes">
+                    <span class="bi bi-journal-text me-2"></span> Consulta de Solicitudes
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/menu/modulo-solicitudes/Calendario">
+                    <span class="bi bi-calendar-event-fill me-2"></span> Calendario
+                </NavLink>
+            </div>
+
+          
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/menu/modulo-solicitudes/inicio-solicitudes">
+                    <span class="bi bi-inboxes-fill me-2"></span> Inicio de Solicitudes
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="/menu/modulo-solicitudes/historial-solicitudes">
+                    <span class="bi bi-clock-history me-2"></span> Historial de Solicitudes
+                </NavLink>
+            </div>
+
+            <AuthorizeView Roles="ADMINISTRADOR, Admin">
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/{id?}">
+                        <span class="bi bi-trash-fill me-2"></span> Eliminar Solicitudes
+                    </NavLink>
+                </div>
+            </AuthorizeView>
+        }
+
+        @* ============================================================
+           MÓDULO RECURSOS DE REVISIÓN - accesos directos
+           ============================================================ *@
+        @if (EnModuloRecursos)
+        {
+            <div class="nav-group px-3 mt-3">
+                <h6 class="text-white fw-bold">Recursos de Revisión</h6>
+
+                <div class="nav-item px-2">
+                    <NavLink class="nav-link" href="/menu/recursos-revision/registro/expediente">
+                        ➤ Expediente
+                    </NavLink>
+                </div>
+
+                <div class="nav-item px-2">
+                    <NavLink class="nav-link" href="/menu/recursos-revision/busqueda">
+                        ➤ Buscar Recursos
+                    </NavLink>
+                </div>
+
+                <div class="nav-item px-2">
+                    <NavLink class="nav-link" href="/menu/recursos-revision/estadisticas">
+                        ➤ Datos Estadísticos
+                    </NavLink>
+                </div>
+            </div>
+        }
+
+    </nav>
+</div>
+
+@code {
+    private bool EnModuloSolicitudes => NavManager.Uri.Contains("/menu/modulo-solicitudes");
+    private bool EnModuloRecursos => NavManager.Uri.Contains("/menu/recursos-revision");
+
+    private bool collapseNavMenu = true;
+
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private void ToggleNavMenu() => collapseNavMenu = !collapseNavMenu;
+}

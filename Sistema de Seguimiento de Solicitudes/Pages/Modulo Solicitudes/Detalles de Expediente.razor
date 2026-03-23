@@ -1,0 +1,372 @@
+﻿@page "/menu/modulo-solicitudes/indice-expedientes/detalles/{id:int}/{folio}"
+
+@attribute [Authorize]
+
+@using Microsoft.AspNetCore.Authorization
+@using Sistema_de_Seguimiento_de_Solicitudes.Models
+@using System.Collections.Generic
+@using SolicitudesShared
+@using MudBlazor
+@using Sistema_de_Seguimiento_de_Solicitudes.Services
+@using System.Text.Json
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components.Authorization
+
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+@inject IExpedienteService ExpedienteService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject ICalendarioService CalendarioService
+
+
+<PageTitle>Detalles</PageTitle>
+
+<div class="container mt-4">
+    <h3 class="text-center">Detalles de Solicitud @Expediente.Folio - @Expediente.Nombre </h3>
+
+    @if (Expediente != null)
+    {
+        <div class="alert alert-warning text-center" hidden="@(EsSoloConsulta == false)" style="font-size: 24px">
+            Solo tienes permisos de lectura. No puedes editar este expediente.
+        </div>
+
+        <EditForm Model="@Expediente" OnValidSubmit="HandleValidSubmit" style="padding-bottom: 100px;">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="row" disabled="@EsSoloConsulta">
+
+                <!-- Barra de Etapa -->
+                <div class="etapas">
+                    <div class="etapa etapa-inicial"><h3>Etapa Inicial</h3></div>
+                </div>
+                <div class="col-md-6">
+                    <table class="table table-bordered">
+                        <tbody>
+                            <tr>
+                                <th>Folio</th>
+                                <td>@Expediente.Folio</td>
+                            </tr>
+                            <tr>
+                                <th>Año de Admisión</th>
+                                <td>@Expediente.AnoAdmision</td>
+                            </tr>
+                            <tr>
+                                <th>Mes de Admisión</th>
+                                <td>
+                                    <InputSelect class="form-control" @bind-Value="Expediente.MesAdmision" disabled="@EsSoloConsulta">
+                                        <option disabled selected value="">-- Seleccione el mes de admisión --</option>
+                                        @foreach (var mes in Catalogos.MesesAdmision)
+                                        {
+                                            <option value="@mes">@mes</option>
+                                        }
+                                    </InputSelect>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Tipo de Solicitud</th>
+                                <td>
+                                    <InputSelect class="form-control" @bind-Value="_TipoSolicitudBind" disabled="@EsSoloConsulta">
+                                        <option disabled selected value="">-- Seleccione el tipo de solicitud --</option>
+                                        <option value="DAI">DAI</option>
+                                        <option value="ARCO">ARCO</option>
+                                    </InputSelect>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Tipo de Derecho</th>
+                                <td>
+                                    <InputSelect class="form-control" @bind-Value="Expediente.TipoDerecho"
+                                                 disabled="@(Expediente.TipoSolicitud != "ARCO" || EsSoloConsulta)">
+                                        @if (Expediente.TipoSolicitud == "ARCO")
+                                        {
+                                            @foreach (var derechoArco in Catalogos.SolicitudARCO)
+                                            {
+                                                <option value="@derechoArco">@derechoArco</option>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <option value="">-- N/A --</option>
+                                        }
+                                    </InputSelect>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Fecha de Inicio del Trámite</th>
+                                <td>
+                                    <InputDate class="form-control"
+                                               @bind-Value="Expediente.FechaInicioTramite"
+                                               disabled="@EsSoloConsulta" />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Fecha Límite de Respuesta (10 o 20 días hábiles)</th>
+                                <td>
+                                    <InputDate class="form-control"
+                                               @bind-Value="Expediente.FechaLimiteRespuesta"
+                                               disabled />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Ampliación</th>
+                                <td>
+                                    <InputSelect class="form-control" @bind-Value="_AmpliacionBind" disabled="@EsSoloConsulta">
+                                        <option disabled selected value="">-- Seleccione una opción --</option>
+                                        <option value="Si">Si</option>
+                                        <option value="No">No</option>
+                                    </InputSelect>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Estatus</th>
+                                <td>
+                                    <InputSelect class="form-control" @bind-Value="Expediente.Estatus" disabled="@EsSoloConsulta">
+                                        <option disabled selected value="">-- Seleccione un estado --</option>
+                                        <option value="En proceso">En proceso</option>
+                                        <option value="Terminada">Terminada</option>
+                                    </InputSelect>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Fecha de Respuesta</th>
+                                <td><InputDate class="form-control" @bind-Value="Expediente.FechaRespuesta" disabled="@EsSoloConsulta" /></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="col-md-6">
+                    <table class="table table-bordered">
+                        <tbody>
+                            <tr>
+                                <th>Prevención</th>
+                                <td>
+                                    <InputSelect class="form-control" @bind-Value="_PrevencionBind" disabled="@EsSoloConsulta">
+                                        <option disabled selected value="">-- Seleccione una opción --</option>
+                                        <option value="Si">Si</option>
+                                        <option value="No">No</option>
+                                    </InputSelect>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th>Subsana Prevención y Reinicio del Trámite</th>
+                                <td>
+                                    <InputSelect class="form-control" @bind-Value="Expediente.SubsanaPrevencion"
+                                                 disabled="@(Expediente.Prevencion != "Si" || EsSoloConsulta)">
+                                        <option disabled selected value="">-- Seleccione una opción --</option>
+                                        <option value="Si">Si</option>
+                                        <option value="No">No</option>
+                                    </InputSelect>
+                                </td>
+                            </tr>
+
+                            <tr>
+                                <th>Fecha Límite para Prevención (10 días hábiles)</th>
+                                <td>
+                                    <InputDate class="form-control"
+                                               @bind-Value="Expediente.FechaLimitePrevencion"
+                                               disabled />
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Cómo fue Recibida/Registrada en la PNT</th>
+                                <td>
+                                    <InputSelect class="form-control"
+                                                 @bind-Value="_RecibidaRegistradaBind" disabled="@EsSoloConsulta">
+                                        <option disabled selected value="">-- Seleccione una opción --</option>
+                                        <option value="PNT">PNT</option>
+                                        <option value="Manual">Manual</option>
+                                    </InputSelect>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Como desea recibir la respuesta la persona solicitante</th>
+                                <td>
+                                    <InputSelect class="form-control" @bind-Value="Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante" disabled="@EsSoloConsulta">
+                                        <option disabled selected value="">-- Seleccione una opción --</option>
+                                        <option value="Electrónico PNT">Electrónico PNT</option>
+                                        <option value="Correo">Correo</option>
+                                        <option value="Otro">Otro</option>
+                                        <option value="No aplica">No aplica</option>
+                                    </InputSelect>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            @if (!EsSoloConsulta)
+            {
+                <button type="submit" class="btn btn-primary">Guardar cambios</button>
+            }
+        </EditForm>
+    }
+    else
+    {
+        <p class="text-center text-muted">Cargando detalles...</p>
+    }
+</div>
+
+@code {
+    [Parameter] public int Id { get; set; }
+    [Parameter] public string Folio { get; set; } = string.Empty;
+
+    private ClaimsPrincipal Usuario;
+    private bool EsSoloConsulta => Usuario?.IsInRole("CONSULTA") ?? false;
+
+    private Expediente Expediente { get; set; } = new Expediente();
+    private List<DateTime> DiasInhabiles { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var estado = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        Usuario = estado.User;
+
+        DiasInhabiles = (await CalendarioService.ObtenerDiasInhabiles())
+            .Select(d => d.Fecha.Date)
+            .ToList();
+
+        var listaExpedientes = await ExpedienteService.Lista();
+        var expedienteDTO = listaExpedientes.FirstOrDefault(e => e.Id == Id);
+
+        if (expedienteDTO != null)
+        {
+            Expediente = new Expediente
+            {
+                Id = expedienteDTO.Id,
+                Folio = expedienteDTO.Folio ?? string.Empty,
+                TipoSolicitud = expedienteDTO.TipoSolicitud ?? string.Empty,
+                TipoDerecho = expedienteDTO.TipoDerecho ?? string.Empty,
+                FechaInicioTramite = expedienteDTO.FechaInicio,
+                FechaLimiteRespuesta = expedienteDTO.FechaLimiteRespuesta10dias ?? expedienteDTO.FechaLimiteRespuesta20dias,
+                Ampliacion = expedienteDTO.Ampliacion ?? string.Empty,
+                Estatus = expedienteDTO.Estado ?? string.Empty,
+                FechaRespuesta = expedienteDTO.FechaRespuesta,
+                Prevencion = expedienteDTO.Prevencion ? "Si" : "No",   // ✅ conversión bool → string
+                SubsanaPrevencion = expedienteDTO.SubsanaPrevencionReinicoTramite ?? string.Empty,
+                FechaLimitePrevencion = expedienteDTO.FechaLimitePrevencion10dias,
+                RecibidaRegistrada = expedienteDTO.RecibidaRegistrada ?? string.Empty,
+                ComoDeseaRecibirRespuestaPersonaSolicitante = expedienteDTO.ComoDeseaRecibirRespuestaPersonaSolicitante ?? string.Empty,
+                Nombre = expedienteDTO.NombreSolicitante ?? string.Empty,
+                CorreoElectronico = expedienteDTO.CorreoElectronicoSolicitante ?? string.Empty,
+                ContenidoSolicitud = expedienteDTO.ContenidoSolicitud ?? string.Empty
+            };
+        }
+        else
+        {
+            Navigation.NavigateTo("/menu/modulo-solicitudes/indice-expedientes");
+        }
+    }
+
+    private void ActualizarFechaLimite()
+    {
+        if (!string.IsNullOrEmpty(Expediente.TipoSolicitud))
+        {
+            var dias = Expediente.TipoSolicitud == "DAI" ? 10 : 20;
+            if (Expediente.Ampliacion == "Si") dias *= 2;
+            Expediente.FechaLimiteRespuesta = CalcularFechaLimite(Expediente.FechaInicioTramite, dias);
+        }
+
+        if (Expediente.Prevencion == "Si")
+        {
+            Expediente.FechaLimitePrevencion = CalcularFechaLimite(Expediente.FechaInicioTramite, 10);
+        }
+        else
+        {
+            Expediente.FechaLimitePrevencion = null;
+            Expediente.SubsanaPrevencion = string.Empty;
+        }
+    }
+
+    private DateTime CalcularFechaLimite(DateTime inicio, int dias)
+    {
+        var fecha = inicio.Date;
+        while (dias > 0)
+        {
+            fecha = fecha.AddDays(1);
+            if (fecha.DayOfWeek != DayOfWeek.Saturday &&
+                fecha.DayOfWeek != DayOfWeek.Sunday &&
+                !DiasInhabiles.Contains(fecha.Date))
+            {
+                dias--;
+            }
+        }
+        return fecha;
+    }
+
+    private string _TipoSolicitudBind
+    {
+        get => Expediente.TipoSolicitud;
+        set
+        {
+            Expediente.TipoSolicitud = value;
+            ActualizarFechaLimite();
+        }
+    }
+
+    private string _AmpliacionBind
+    {
+        get => Expediente.Ampliacion;
+        set
+        {
+            Expediente.Ampliacion = value;
+            ActualizarFechaLimite();
+        }
+    }
+
+    private string _PrevencionBind
+    {
+        get => Expediente.Prevencion;
+        set
+        {
+            Expediente.Prevencion = value;
+            ActualizarFechaLimite();
+        }
+    }
+
+    private string _RecibidaRegistradaBind
+    {
+        get => Expediente.RecibidaRegistrada;
+        set => Expediente.RecibidaRegistrada = value;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        var expedienteDTO = new ExpedienteDTO
+        {
+            Id = Expediente.Id,
+            Folio = Expediente.Folio,
+            TipoSolicitud = Expediente.TipoSolicitud,
+            TipoDerecho = Expediente.TipoDerecho,
+            FechaInicio = Expediente.FechaInicioTramite,
+            FechaLimiteRespuesta10dias = Expediente.TipoSolicitud == "DAI" ? Expediente.FechaLimiteRespuesta : null,
+            FechaLimiteRespuesta20dias = Expediente.TipoSolicitud == "ARCO" ? Expediente.FechaLimiteRespuesta : null,
+            Ampliacion = Expediente.Ampliacion,
+            Estado = Expediente.Estatus,
+            FechaRespuesta = Expediente.FechaRespuesta,
+            Prevencion = Expediente.Prevencion == "Si",   // ✅ conversión string → bool
+            SubsanaPrevencionReinicoTramite = Expediente.SubsanaPrevencion,
+            FechaLimitePrevencion10dias = Expediente.FechaLimitePrevencion,
+            RecibidaRegistrada = Expediente.RecibidaRegistrada,
+            ComoDeseaRecibirRespuestaPersonaSolicitante = Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante,
+            NombreSolicitante = Expediente.Nombre,
+            CorreoElectronicoSolicitante = Expediente.CorreoElectronico,
+            ContenidoSolicitud = Expediente.ContenidoSolicitud
+        };
+
+        var exito = await ExpedienteService.Actualizar(expedienteDTO);
+        if (exito)
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Cambios guardados correctamente.");
+            Navigation.NavigateTo("/menu/modulo-solicitudes/indice-expedientes");
+        }
+        else
+        {
+            await JSRuntime.InvokeVoidAsync("alert", "Error al guardar los cambios.");
+        }
+    }
+}
