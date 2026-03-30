@@ -1,19 +1,14 @@
 ﻿@page "/menu/modulo-solicitudes/indice-expedientes"
 
-@* Este atributo indica que la página requiere que el usuario esté autenticado *@
 @attribute [Authorize(Roles = "CONSULTA,CAPTURA,SUPERVISIÓN,ADMINISTRADOR")]
 
-
-@* Se importa el espacio de nombres necesario para usar el atributo [Authorize] *@
 @using Microsoft.AspNetCore.Authorization
-
-<link href="css/app.css" rel="stylesheet" />
-
 @using System.Collections.Generic
 @using SolicitudesShared
 @using Sistema_de_Seguimiento_de_Solicitudes.Services
 @using System.Text.Json
 @using Microsoft.AspNetCore.Components.Authorization
+@using MudBlazor
 
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject HttpClient Http
@@ -21,144 +16,171 @@
 @inject IJSRuntime JSRuntime
 @inject IExpedienteService ExpedienteService
 
-<!-- SSSSSS -->
+<PageTitle>Índice de Solicitudes</PageTitle>
 
-<PageTitle>Solicitudes</PageTitle>
+<div class="page-container">
+    <h2 class="page-title">Consulta de Solicitudes</h2>
 
-<h3>Consulta de Solicitudes</h3>
+    <div class="action-bar">
+        <div class="search-container">
+            <MudIcon Icon="@Icons.Material.Filled.Search" Style="width: 20px; height: 20px; flex-shrink: 0; position: absolute; left: 12px; top: 12px; color: #94a3b8;" />
+            <input type="text" class="search-input" placeholder="Buscar por nombre, folio, contenido, fecha, año..." @bind="Filtro" @bind:event="oninput" />
+        </div>
 
+        @if (PuedeCapturar)
+        {
+            <button class="btn-new" @onclick="MostrarFormulario">
+                <MudIcon Icon="@Icons.Material.Filled.Add" Style="width: 20px; height: 20px; flex-shrink: 0;" />
+                Registrar Nueva Solicitud
+            </button>
+        }
+    </div>
 
-<!-- Campo de Busqueda -->
-<div class="d-flex align-items-center gap-2 mb-3">
-    <input type="text" class="form-control" placeholder="🔍 Buscar por nombre, folio, contenido, fecha, año..." @bind="Filtro" @bind:event="oninput" style="flex: 1;" />
+    <div class="table-card">
+        <div style="overflow-x: auto;">
+            <table class="modern-table">
+                <thead>
+                    <tr>
+                        <th style="width: 100px; text-align: center;">Acción</th>
+                        <th>ID</th>
+                        <th>Folio</th>
+                        <th>Nombre</th>
+                        <th>Fecha de Inicio</th>
+                        <th style="text-align: center;">Estatus</th>
+                        <th style="max-width: 350px;">Contenido de la Solicitud</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (ExpedientesFiltrados != null && ExpedientesFiltrados.Any())
+                    {
+                        @foreach (var expediente in PagedExpedientes)
+                        {
+                            <tr>
+                                <td style="text-align: center;">
+                                    <button class="btn-action" @onclick="() => VerDetalle(expediente.Id)">
+                                        <MudIcon Icon="@Icons.Material.Filled.Visibility" Style="width: 16px; height: 16px; flex-shrink: 0; margin-right: 4px;" /> Ver
+                                    </button>
+                                </td>
+                                <td class="text-muted">@expediente.Id</td>
+                                <td class="text-folio">@expediente.Folio</td>
+                                <td class="text-nombre">@expediente.NombreSolicitante</td>
+                                <td class="text-muted">@(expediente.FechaInicio.ToString("dd/MM/yyyy HH:mm") ?? "N/A")</td>
+                                <td style="text-align: center;">
+                                    <span class="status-badge @GetStatusClass(expediente.Estado)">@expediente.Estado</span>
+                                </td>
+                                <td style="max-width: 350px;">
+                                    <div class="content-truncate">
+                                        @expediente.ContenidoSolicitud
+                                    </div>
+                                    @if (expediente.ContenidoSolicitud?.Length > 80)
+                                    {
+                                        <span class="ver-mas-link" @onclick="() => OpenModal(expediente.ContenidoSolicitud)">Ver más</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="7" class="empty-state">
+                                <MudIcon Icon="@Icons.Material.Filled.SearchOff" Style="width: 48px; height: 48px; flex-shrink: 0; color: #cbd5e1; margin-bottom: 10px;" />
+                                <br /> No se encontraron resultados que coincidan con tu búsqueda.
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
 
-    <!-- Mostrar botón solo si el usuario tiene el rol adecuado -->
-    @if (PuedeCapturar)
+    @if (ExpedientesFiltrados != null && ExpedientesFiltrados.Any())
     {
-        <!-- Botón para agregar nuevo expediente -->
-        <button class="btn-agregar" @onclick="MostrarFormulario"> Registrar Nueva Solicitud </button>
+        <div class="pagination-wrapper">
+            <button class="btn-page" @onclick="PrevPage" disabled="@(currentPage <= 1)">
+                <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" Style="width: 20px; height: 20px; flex-shrink: 0;" /> Anterior
+            </button>
+            <span class="page-info">Página @currentPage de @totalPages</span>
+            <button class="btn-page" @onclick="NextPage" disabled="@(currentPage >= totalPages)">
+                Siguiente <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Style="width: 20px; height: 20px; flex-shrink: 0;" />
+            </button>
+        </div>
     }
 </div>
 
-<!-- Modal de formulario para creación de expediente -->
 @if (MostrarFormularioModal)
 {
-    <div class="modal">
-        <div class="modal-contenido">
-            <h4>Nuevo Expediente</h4>
+    <div class="modern-modal-backdrop" @onclick="CerrarFormulario">
+        <div class="modern-modal-box" @onclick:stopPropagation>
+            <div class="modal-header">
+                <h3>Nuevo Expediente</h3>
+                <button class="close-btn" @onclick="CerrarFormulario">&times;</button>
+            </div>
+
             <EditForm Model="NuevoExpediente" OnValidSubmit="GuardarExpediente">
                 <DataAnnotationsValidator />
-                <ValidationSummary />
 
-                <div style="display: grid; grid-template-columns: 1fr;">
-                    <label for="NumeroFolio">Folio: </label>
-                    <InputText id="Folio" @bind-Value="NuevoExpediente.Folio" maxlength="20" />
-
-                    <label for="Nombre">Nombre: </label>
-                    <InputText id="Nombre" @bind-Value="NuevoExpediente.NombreSolicitante" />
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                    <div>
-                        <label for="FechaInicioTramite">Fecha de Inicio: </label>
-                        <InputDate id="FechaInicioTramite" @bind-Value="NuevoExpediente.FechaInicio" />
+                <div class="form-grid">
+                    <div class="input-group">
+                        <label for="Folio">Folio</label>
+                        <InputText id="Folio" class="modern-input" @bind-Value="NuevoExpediente.Folio" maxlength="20" placeholder="Ej. 12345678" />
                     </div>
-                    <div>
-                        <label for="Estatus">Estatus: </label>
-                        <InputSelect id="Estatus" @bind-Value="NuevoExpediente.Estado" style="padding: 3px;">
-                            <option value="" disabled selected>Selecciona una opción:</option>
+
+                    <div class="input-group">
+                        <label for="Nombre">Nombre del Solicitante</label>
+                        <InputText id="Nombre" class="modern-input" @bind-Value="NuevoExpediente.NombreSolicitante" placeholder="Nombre completo" />
+                    </div>
+
+                    <div class="input-group">
+                        <label for="FechaInicioTramite">Fecha de Inicio</label>
+                        <InputDate id="FechaInicioTramite" class="modern-input" @bind-Value="NuevoExpediente.FechaInicio" />
+                    </div>
+
+                    <div class="input-group">
+                        <label for="Estatus">Estatus</label>
+                        <InputSelect id="Estatus" class="modern-input" @bind-Value="NuevoExpediente.Estado">
+                            <option value="" disabled selected>Selecciona una opción</option>
                             @foreach (var estado in ListaEstados)
                             {
                                 <option value="@estado">@estado</option>
                             }
                         </InputSelect>
                     </div>
+
+                    <div class="input-group span-2">
+                        <label for="ContenidoSolicitud">Contenido de la Solicitud</label>
+                        <InputTextArea id="ContenidoSolicitud" class="modern-input" @bind-Value="NuevoExpediente.ContenidoSolicitud" rows="4" placeholder="Escribe el detalle de la solicitud aquí..." />
+                    </div>
                 </div>
 
-                <div>
-                    <label for="ContenidoSolicitud">Contenido de la Solicitud</label>
-                    <InputTextArea id="ContenidoSolicitud" @bind-Value="NuevoExpediente.ContenidoSolicitud" rows="4" style="width: 100%;" />
+                <div class="modal-footer">
+                    <button type="button" class="btn-cancel" @onclick="CerrarFormulario">Cancelar</button>
+                    <button type="submit" class="btn-save"><MudIcon Icon="@Icons.Material.Filled.Save" Style="width: 18px; height: 18px; flex-shrink: 0; margin-right: 6px;" /> Guardar</button>
                 </div>
-
-                <button type="submit">Guardar</button>
-                <button @onclick="CerrarFormulario">Cancelar</button>
             </EditForm>
         </div>
     </div>
-}  
+}
 
-<div class="table-responsive">
-    <table class="table">
-        <thead>
-            <tr>
-                <th>DETALLES</th>
-                <th>ID</th>
-                <th>FOLIO</th>
-                <th>NOMBRE</th>
-                <th>FECHA DE INICIO</th>
-                <th>ESTATUS</th>
-                <th>CONTENIDO DE LA SOLICITUD</th>
-            </tr>
-        </thead>
-        <tbody>
-            @if (ExpedientesFiltrados != null && ExpedientesFiltrados.Any())
-            {
-                @foreach (var expediente in PagedExpedientes)
-                {
-                    <tr>
-                        <td>
-                            <button @onclick="() => VerDetalle(expediente.Id)">Ver</button>
-                        </td>
-                        <td>@expediente.Id</td>
-                        <td>@expediente.Folio</td>
-                        <td>@expediente.NombreSolicitante</td>
-                        <td>@(expediente.FechaInicio.ToString("dd/MM/yyyy HH:mm:ss") ?? "N/A")</td>
-                        <td>@expediente.Estado</td>
-                        <td style="padding-left: 8px; padding-right: 8px; width: 518px;">
-                            <span class="truncate">
-                                @expediente.ContenidoSolicitud
-                            </span>
-                            @if (expediente.ContenidoSolicitud?.Length > 100)
-                            {
-                                <span class="ver-mas" @onclick="() => OpenModal(expediente.ContenidoSolicitud)">
-                                    Ver más
-                                </span>
-                            }
-                        </td>
-                    </tr>
-                }
-            }
-            else
-            {
-                <tr>
-                    <td colspan="7" style="text-align: center; font-size: 30px; font-weight: bold; color: #ff0000; padding: 15px; background-color: #ffecec; border: 1px solid #ffaaaa;">
-                        No se encontraron resultados.
-                    </td>
-                </tr>
-            }
-        </tbody>
-    </table>
-</div>
-
-
-<!-- Modal para ver el contenido completo de la solicitud -->
-<div id="myModal" class="modalCont" style="display: none;" @onclick="CloseModal">
-    <div class="modal-contentt" @onclick:stopPropagation>
-        <span class="close" @onclick="CloseModal">&times;</span>
-        <h2>Contenido de la Solicitud</h2>
-        <p>@modalContenido</p> <!-- Mostrar el contenido completo de la solicitud -->
+<div id="myModal" class="modern-modal-backdrop" style="display: none;" @onclick="CloseModal">
+    <div class="modern-modal-box content-modal" @onclick:stopPropagation>
+        <div class="modal-header">
+            <h3>Contenido Completo de la Solicitud</h3>
+            <button class="close-btn" @onclick="CloseModal">&times;</button>
+        </div>
+        <div class="modal-body-scroll">
+            <p>@modalContenido</p>
+        </div>
     </div>
-</div> 
-
-<div class="d-flex justify-content-center align-items-center mt-3" style="padding-bottom: 16px">
-    <button class="btn btn-primary mx-2" style="width: 90px" @onclick="PrevPage" disabled="@(currentPage <= 1)">
-        Anterior
-    </button>
-    <span>Página @currentPage de @totalPages</span>
-    <button class="btn btn-primary mx-2" style="width: 90px" @onclick="NextPage" disabled="@(currentPage >= totalPages)">
-        Siguiente
-    </button>
 </div>
+
+@if (MostrarMensajeError)
+{
+    <div class="modern-alert-float">
+        <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 8px;" />
+        @MensajeError
+    </div>
+}
 
 @code {
     private bool MostrarModal { get; set; } = false;
@@ -177,7 +199,7 @@
             if (_filtro != value)
             {
                 _filtro = value;
-                _ = Buscar(); // 👉 ahora consulta al backend
+                _ = Buscar();
             }
         }
     }
@@ -186,10 +208,8 @@
     private List<ExpedienteDTO> ExpedientesFiltrados { get; set; } = new();
     private ExpedienteDTO NuevoExpediente { get; set; } = new();
 
-    // Roles
     private bool PuedeCapturar = false;
 
-    // Paginación
     private int currentPage = 1;
     private int pageSize = 12;
     private int totalPages => (ExpedientesFiltrados.Count + pageSize - 1) / pageSize;
@@ -219,7 +239,6 @@
         ExpedientesFiltrados = new List<ExpedienteDTO>(listaExpedientes.OrderByDescending(e => e.Id));
     }
 
-    //  Nueva búsqueda: folio + contenido + solicitante (API)
     private async Task Buscar()
     {
         if (!string.IsNullOrWhiteSpace(Filtro))
@@ -231,8 +250,7 @@
             listaExpedientes = await ExpedienteService.Lista();
             ExpedientesFiltrados = new List<ExpedienteDTO>(listaExpedientes.OrderByDescending(e => e.Id));
         }
-
-        currentPage = 1; // reinicia la paginación
+        currentPage = 1;
         StateHasChanged();
     }
 
@@ -253,34 +271,25 @@
         }
     }
 
-    private List<string> ListaEstados = new()
-    {
-        "EN PROCESO", "TERMINADA"
-    };
-
+    private List<string> ListaEstados = new() { "INICIO", "EN PROCESO", "TERMINADA" };
 
     private void MostrarFormulario() => MostrarFormularioModal = true;
     private void CerrarFormulario() => MostrarFormularioModal = false;
 
     private async Task GuardarExpediente()
     {
-        // ✅ Validar que el folio no esté vacío
         if (string.IsNullOrWhiteSpace(NuevoExpediente.Folio))
         {
-            await MostrarAlerta("ERROR: EL FOLIO ES OBLIGATORIO.");
+            await MostrarAlerta("EL FOLIO ES OBLIGATORIO.");
             return;
         }
 
-        // ✅ Validar que el folio no se repita
         if (listaExpedientes!.Any(e => e.Folio == NuevoExpediente.Folio))
         {
-            await MostrarAlerta("ERROR: EL FOLIO YA EXISTE.");
+            await MostrarAlerta("EL FOLIO YA EXISTE EN EL SISTEMA.");
             return;
         }
 
-        // ❌ El nombre ya no es obligatorio (se elimina esa validación)
-
-        // Asignar fecha y hora actuales
         NuevoExpediente.FechaInicio = NuevoExpediente.FechaInicio.Date.Add(DateTime.Now.TimeOfDay);
 
         await ExpedienteService.Crear(NuevoExpediente);
@@ -289,8 +298,8 @@
         ExpedientesFiltrados = new List<ExpedienteDTO>(listaExpedientes.OrderByDescending(e => e.Id));
 
         MostrarFormularioModal = false;
+        NuevoExpediente = new ExpedienteDTO(); // Limpiar form
     }
-
 
     private async Task MostrarAlerta(string mensaje)
     {
@@ -304,7 +313,7 @@
     private async Task OpenModal(string contenido)
     {
         modalContenido = contenido;
-        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('myModal').style.display = 'block';");
+        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('myModal').style.display = 'flex';");
     }
 
     private async Task CloseModal()
@@ -314,12 +323,476 @@
 
     private void PrevPage() { if (currentPage > 1) currentPage--; }
     private void NextPage() { if (currentPage < totalPages) currentPage++; }
+
+    // Helper para pintar badges
+    private string GetStatusClass(string estado)
+    {
+        if (string.IsNullOrEmpty(estado)) return "status-default";
+        var st = estado.ToUpper();
+        if (st.Contains("INICIO")) return "status-inicio";
+        if (st.Contains("PROCESO")) return "status-proceso";
+        if (st.Contains("TERMINAD")) return "status-terminada";
+        return "status-default";
+    }
 }
 
+<style>
+    /* Variables Premium */
+    :root {
+        --bg-page: #f8fafc;
+        --card-bg: #ffffff;
+        --text-main: #0f172a;
+        --text-muted: #64748b;
+        --border-color: #e2e8f0;
+        --primary-color: #4f46e5;
+        --primary-hover: #4338ca;
+        --success-color: #10b981;
+        --success-hover: #059669;
+    }
 
-@if (MostrarMensajeError)
-     {
-         <div class="alerta flotante">
-             @MensajeError
-         </div>
-     }
+    .page-container {
+        padding: 1.5rem 2rem;
+        max-width: 1600px;
+        margin: 0 auto;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    .page-title {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text-main);
+        margin-bottom: 1.5rem;
+        letter-spacing: -0.02em;
+    }
+
+    /* ================= BARRA DE BÚSQUEDA ================= */
+    .action-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .search-container {
+        flex-grow: 1;
+        max-width: 600px;
+        position: relative;
+    }
+
+    .search-input {
+        width: 100%;
+        padding: 0.75rem 1rem 0.75rem 2.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 0.95rem;
+        transition: all 0.2s;
+        background-color: var(--card-bg);
+        color: var(--text-main);
+    }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px #e0e7ff;
+        }
+
+    .btn-new {
+        background-color: var(--success-color);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s;
+        box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+        cursor: pointer;
+        white-space: nowrap;
+    }
+
+        .btn-new:hover {
+            background-color: var(--success-hover);
+            transform: translateY(-2px);
+        }
+
+    /* ================= TABLA MODERNA ================= */
+    .table-card {
+        background: var(--card-bg);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);
+        border: 1px solid var(--border-color);
+    }
+
+    .modern-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        .modern-table th {
+            background-color: #f8fafc;
+            color: #64748b;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 1rem 1.5rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .modern-table td {
+            padding: 1rem 1.5rem;
+            color: var(--text-main);
+            font-size: 0.95rem;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+        }
+
+        .modern-table tbody tr:hover {
+            background-color: #f8fafc;
+        }
+
+    .text-folio {
+        font-weight: 600;
+        color: var(--text-main);
+    }
+
+    .text-nombre {
+        font-weight: 500;
+    }
+
+    .text-muted {
+        color: var(--text-muted);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem !important;
+        color: var(--text-muted);
+        font-size: 1.1rem;
+        font-style: italic;
+    }
+
+    /* Badges de Estatus */
+    .status-badge {
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        display: inline-block;
+        white-space: nowrap;
+    }
+
+    .status-inicio {
+        background-color: #e0e7ff;
+        color: #4338ca;
+        border: 1px solid #c7d2fe;
+    }
+
+    .status-proceso {
+        background-color: #fef3c7;
+        color: #b45309;
+        border: 1px solid #fde68a;
+    }
+
+    .status-terminada {
+        background-color: #d1fae5;
+        color: #047857;
+        border: 1px solid #a7f3d0;
+    }
+
+    .status-default {
+        background-color: #f1f5f9;
+        color: #475569;
+        border: 1px solid #e2e8f0;
+    }
+
+    /* Botón Ver y Ver Más */
+    .btn-action {
+        background-color: #f8fafc;
+        color: var(--primary-color);
+        border: 1px solid #cbd5e1;
+        padding: 0.4rem 0.8rem;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+    }
+
+        .btn-action:hover {
+            background-color: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+    .content-truncate {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+
+    .ver-mas-link {
+        color: var(--primary-color);
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: inline-block;
+        margin-top: 4px;
+    }
+
+        .ver-mas-link:hover {
+            text-decoration: underline;
+        }
+
+    /* ================= PAGINACIÓN ================= */
+    .pagination-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 1.2rem;
+        gap: 1rem;
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-top: none;
+        border-bottom-left-radius: 12px;
+        border-bottom-right-radius: 12px;
+    }
+
+    .btn-page {
+        background-color: #ffffff;
+        border: 1px solid var(--border-color);
+        color: var(--text-main);
+        padding: 0.4rem 1rem;
+        border-radius: 6px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+    }
+
+        .btn-page:hover:not(:disabled) {
+            background-color: #f1f5f9;
+        }
+
+        .btn-page:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+    .page-info {
+        font-weight: 600;
+        color: var(--text-muted);
+        font-size: 0.9rem;
+    }
+
+    /* ================= MODALES MODERNOS ================= */
+    .modern-modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(15, 23, 42, 0.6);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+        animation: fadeIn 0.2s ease-out;
+    }
+
+    .modern-modal-box {
+        background: #ffffff;
+        border-radius: 16px;
+        width: 100%;
+        max-width: 600px;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        transform: translateY(0);
+        animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        overflow: hidden;
+    }
+
+    .content-modal {
+        max-width: 700px;
+    }
+
+    .modal-header {
+        padding: 1.5rem 2rem;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-main);
+        }
+
+    .close-btn {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        color: #94a3b8;
+        cursor: pointer;
+    }
+
+        .close-btn:hover {
+            color: #ef4444;
+        }
+
+    .modal-body-scroll {
+        padding: 2rem;
+        max-height: 60vh;
+        overflow-y: auto;
+        color: #334155;
+        line-height: 1.6;
+        white-space: pre-wrap;
+    }
+
+    .form-grid {
+        padding: 1.5rem 2rem;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+
+    .input-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .span-2 {
+        grid-column: span 2;
+    }
+
+    .input-group label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        margin-bottom: 6px;
+    }
+
+    .modern-input {
+        background-color: #f8fafc;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 10px 14px;
+        font-size: 0.95rem;
+        color: var(--text-main);
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+        .modern-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px #e0e7ff;
+            background: #fff;
+        }
+
+    .modal-footer {
+        padding: 1.2rem 2rem;
+        background: #f8fafc;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        justify-content: flex-end;
+        gap: 12px;
+    }
+
+    .btn-cancel {
+        background: white;
+        border: 1px solid var(--border-color);
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--text-muted);
+    }
+
+        .btn-cancel:hover {
+            background: #f1f5f9;
+        }
+
+    .btn-save {
+        background: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 0.6rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+    }
+
+        .btn-save:hover {
+            background: var(--primary-hover);
+        }
+
+    /* ================= ALERTA FLOTANTE ================= */
+    .modern-alert-float {
+        position: fixed;
+        top: 24px;
+        right: 24px;
+        background-color: #fef2f2;
+        color: #b91c1c;
+        border: 1px solid #fecaca;
+        padding: 16px 24px;
+        border-radius: 12px;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        display: flex;
+        align-items: center;
+        font-weight: 600;
+        z-index: 9999;
+        animation: slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
+            opacity: 1;
+        }
+    }
+    @@keyframes slideUp {
+        from {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    @@keyframes slideLeft {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+</style>
