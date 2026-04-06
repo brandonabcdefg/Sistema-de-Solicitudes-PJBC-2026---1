@@ -19,21 +19,23 @@
 <PageTitle>Índice de Solicitudes</PageTitle>
 
 <div class="page-container">
-    <h2 class="page-title">Consulta de Solicitudes</h2>
 
-    <div class="action-bar">
-        <div class="search-container">
-            <MudIcon Icon="@Icons.Material.Filled.Search" Style="width: 20px; height: 20px; flex-shrink: 0; position: absolute; left: 12px; top: 12px; color: #94a3b8;" />
-            <input type="text" class="search-input" placeholder="Buscar por nombre, folio, contenido, fecha, año..." @bind="Filtro" @bind:event="oninput" />
-        </div>
-
+    <div class="header-flex">
+        <h2 class="page-title">Consulta de Solicitudes</h2>
         @if (PuedeCapturar)
         {
             <button class="btn-new" @onclick="MostrarFormulario">
-                <MudIcon Icon="@Icons.Material.Filled.Add" Style="width: 20px; height: 20px; flex-shrink: 0;" />
+                <MudIcon Icon="@Icons.Material.Filled.Add" Style="width: 20px; height: 20px; flex-shrink: 0; margin-right: 6px;" />
                 Registrar Nueva Solicitud
             </button>
         }
+    </div>
+
+    <div class="search-bar-wrapper">
+        <div class="search-container">
+            <MudIcon Icon="@Icons.Material.Filled.Search" Style="width: 20px; height: 20px; flex-shrink: 0; position: absolute; left: 16px; top: 12px; color: #94a3b8;" />
+            <input type="text" class="search-input" placeholder="Buscar por nombre, folio, contenido, fecha, año..." @bind="Filtro" @bind:event="oninput" />
+        </div>
     </div>
 
     <div class="table-card">
@@ -41,8 +43,8 @@
             <table class="modern-table">
                 <thead>
                     <tr>
-                        <th style="width: 100px; text-align: center;">Acción</th>
-                        <th>ID</th>
+                        <th style="width: 80px; text-align: center;">Acción</th>
+                        <th style="width: 60px;">ID</th>
                         <th>Folio</th>
                         <th>Nombre</th>
                         <th>Fecha de Inicio</th>
@@ -57,25 +59,25 @@
                         {
                             <tr>
                                 <td style="text-align: center;">
-                                    <button class="btn-action" @onclick="() => VerDetalle(expediente.Id)">
-                                        <MudIcon Icon="@Icons.Material.Filled.Visibility" Style="width: 16px; height: 16px; flex-shrink: 0; margin-right: 4px;" /> Ver
+                                    <button class="btn-view-circle" @onclick="() => VerDetalle(expediente.Id)" title="Ver detalles">
+                                        <MudIcon Icon="@Icons.Material.Filled.Visibility" Style="width: 18px; height: 18px; flex-shrink: 0;" />
                                     </button>
                                 </td>
-                                <td class="text-muted">@expediente.Id</td>
+                                <td class="text-id">#@expediente.Id</td>
                                 <td class="text-folio">@expediente.Folio</td>
                                 <td class="text-nombre">@expediente.NombreSolicitante</td>
-                                <td class="text-muted">@(expediente.FechaInicio.ToString("dd/MM/yyyy HH:mm") ?? "N/A")</td>
+                                <td class="text-date">@(expediente.FechaInicio.ToString("dd/MM/yyyy HH:mm") ?? "N/A")</td>
                                 <td style="text-align: center;">
                                     <span class="status-badge @GetStatusClass(expediente.Estado)">@expediente.Estado</span>
                                 </td>
-                                <td style="max-width: 350px;">
-                                    <div class="content-truncate">
-                                        @expediente.ContenidoSolicitud
+                                <td>
+                                    <div class="content-cell">
+                                        <span class="truncate-text">@expediente.ContenidoSolicitud</span>
+                                        @if (expediente.ContenidoSolicitud?.Length > 60)
+                                        {
+                                            <button class="btn-more" @onclick="() => OpenModal(expediente.ContenidoSolicitud)">Ver más</button>
+                                        }
                                     </div>
-                                    @if (expediente.ContenidoSolicitud?.Length > 80)
-                                    {
-                                        <span class="ver-mas-link" @onclick="() => OpenModal(expediente.ContenidoSolicitud)">Ver más</span>
-                                    }
                                 </td>
                             </tr>
                         }
@@ -84,28 +86,30 @@
                     {
                         <tr>
                             <td colspan="7" class="empty-state">
-                                <MudIcon Icon="@Icons.Material.Filled.SearchOff" Style="width: 48px; height: 48px; flex-shrink: 0; color: #cbd5e1; margin-bottom: 10px;" />
-                                <br /> No se encontraron resultados que coincidan con tu búsqueda.
+                                <MudIcon Icon="@Icons.Material.Filled.SearchOff" Style="width: 48px; height: 48px; flex-shrink: 0; color: #cbd5e1; margin-bottom: 1rem;" />
+                                <p>No se encontraron resultados que coincidan con tu búsqueda.</p>
                             </td>
                         </tr>
                     }
                 </tbody>
             </table>
         </div>
-    </div>
 
-    @if (ExpedientesFiltrados != null && ExpedientesFiltrados.Any())
-    {
-        <div class="pagination-wrapper">
-            <button class="btn-page" @onclick="PrevPage" disabled="@(currentPage <= 1)">
-                <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" Style="width: 20px; height: 20px; flex-shrink: 0;" /> Anterior
-            </button>
-            <span class="page-info">Página @currentPage de @totalPages</span>
-            <button class="btn-page" @onclick="NextPage" disabled="@(currentPage >= totalPages)">
-                Siguiente <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Style="width: 20px; height: 20px; flex-shrink: 0;" />
-            </button>
-        </div>
-    }
+        @if (ExpedientesFiltrados != null && ExpedientesFiltrados.Any())
+        {
+            <div class="pagination-container">
+                <button class="btn-pag" @onclick="PrevPage" disabled="@(currentPage <= 1)">
+                    <MudIcon Icon="@Icons.Material.Filled.ChevronLeft" Style="width: 20px; height: 20px; flex-shrink: 0;" />
+                </button>
+                <div class="page-numbers">
+                    Página <span>@currentPage</span> de @totalPages
+                </div>
+                <button class="btn-pag" @onclick="NextPage" disabled="@(currentPage >= totalPages)">
+                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Style="width: 20px; height: 20px; flex-shrink: 0;" />
+                </button>
+            </div>
+        }
+    </div>
 </div>
 
 @if (MostrarFormularioModal)
@@ -120,7 +124,7 @@
             <EditForm Model="NuevoExpediente" OnValidSubmit="GuardarExpediente">
                 <DataAnnotationsValidator />
 
-                <div class="form-grid">
+                <div class="modal-body form-grid">
                     <div class="input-group">
                         <label for="Folio">Folio</label>
                         <InputText id="Folio" class="modern-input" @bind-Value="NuevoExpediente.Folio" maxlength="20" placeholder="Ej. 12345678" />
@@ -155,7 +159,9 @@
 
                 <div class="modal-footer">
                     <button type="button" class="btn-cancel" @onclick="CerrarFormulario">Cancelar</button>
-                    <button type="submit" class="btn-save"><MudIcon Icon="@Icons.Material.Filled.Save" Style="width: 18px; height: 18px; flex-shrink: 0; margin-right: 6px;" /> Guardar</button>
+                    <button type="submit" class="btn-save">
+                        <MudIcon Icon="@Icons.Material.Filled.Save" Style="width: 18px; height: 18px; flex-shrink: 0; margin-right: 6px;" /> Guardar
+                    </button>
                 </div>
             </EditForm>
         </div>
@@ -212,7 +218,7 @@
 
     private int currentPage = 1;
     private int pageSize = 12;
-    private int totalPages => (ExpedientesFiltrados.Count + pageSize - 1) / pageSize;
+    private int totalPages => ExpedientesFiltrados.Count == 0 ? 1 : (int)Math.Ceiling((double)ExpedientesFiltrados.Count / pageSize);
 
     private IEnumerable<ExpedienteDTO> PagedExpedientes => ExpedientesFiltrados
         .OrderByDescending(e => e.Id)
@@ -298,7 +304,7 @@
         ExpedientesFiltrados = new List<ExpedienteDTO>(listaExpedientes.OrderByDescending(e => e.Id));
 
         MostrarFormularioModal = false;
-        NuevoExpediente = new ExpedienteDTO(); // Limpiar form
+        NuevoExpediente = new ExpedienteDTO();
     }
 
     private async Task MostrarAlerta(string mensaje)
@@ -324,7 +330,6 @@
     private void PrevPage() { if (currentPage > 1) currentPage--; }
     private void NextPage() { if (currentPage < totalPages) currentPage++; }
 
-    // Helper para pintar badges
     private string GetStatusClass(string estado)
     {
         if (string.IsNullOrEmpty(estado)) return "status-default";
@@ -337,7 +342,7 @@
 }
 
 <style>
-    /* Variables Premium */
+    /* ================= VARIABLES ================= */
     :root {
         --bg-page: #f8fafc;
         --card-bg: #ffffff;
@@ -351,79 +356,121 @@
     }
 
     .page-container {
-        padding: 1.5rem 2rem;
-        max-width: 1600px;
+        padding: 2rem;
+        max-width: 1400px;
         margin: 0 auto;
-        font-family: 'Segoe UI', system-ui, sans-serif;
+        font-family: 'Inter', system-ui, sans-serif;
     }
 
-    .page-title {
-        font-size: 2rem;
-        font-weight: 800;
-        color: var(--text-main);
-        margin-bottom: 1.5rem;
-        letter-spacing: -0.02em;
-    }
-
-    /* ================= BARRA DE BÚSQUEDA ================= */
-    .action-bar {
+    /* ================= ENCABEZADO ================= */
+    .header-flex {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .page-title {
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: var(--text-main);
+        margin: 0;
+    }
+
+    /* ================= BARRA DE BÚSQUEDA ================= */
+    .search-bar-wrapper {
         margin-bottom: 1.5rem;
     }
 
     .search-container {
-        flex-grow: 1;
-        max-width: 600px;
         position: relative;
+        max-width: 500px;
     }
 
     .search-input {
         width: 100%;
-        padding: 0.75rem 1rem 0.75rem 2.5rem;
+        padding: 0.7rem 1rem 0.7rem 2.8rem;
         border: 1px solid var(--border-color);
-        border-radius: 8px;
-        font-size: 0.95rem;
+        border-radius: 10px;
+        background: white;
         transition: all 0.2s;
-        background-color: var(--card-bg);
         color: var(--text-main);
     }
 
         .search-input:focus {
             outline: none;
             border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px #e0e7ff;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
         }
 
+    /* ================= BOTONES BLINDADOS CONTRA APP.CSS ================= */
+    /* El !important obliga a que ignore cualquier botón genérico que ocupe 100% */
+    .btn-new, .btn-save, .btn-cancel, .btn-view-circle, .btn-pag, .btn-more, .close-btn {
+        width: auto !important;
+    }
+
     .btn-new {
-        background-color: var(--success-color);
+        background-color: var(--primary-color);
         color: white;
         border: none;
-        padding: 0.75rem 1.5rem;
+        padding: 0.6rem 1.2rem;
         border-radius: 8px;
         font-weight: 600;
-        display: flex;
+        display: inline-flex;
         align-items: center;
-        gap: 0.5rem;
+        justify-content: center;
         transition: all 0.2s;
-        box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+        box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2);
         cursor: pointer;
-        white-space: nowrap;
     }
 
         .btn-new:hover {
-            background-color: var(--success-hover);
-            transform: translateY(-2px);
+            transform: translateY(-1px);
+            background: var(--primary-hover);
         }
 
-    /* ================= TABLA MODERNA ================= */
+    .btn-view-circle {
+        width: 36px !important;
+        height: 36px !important;
+        border-radius: 50%;
+        border: 1px solid var(--border-color);
+        background: white;
+        color: var(--text-muted);
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        padding: 0 !important;
+    }
+
+        .btn-view-circle:hover {
+            background: var(--primary-color);
+            color: white;
+            border-color: var(--primary-color);
+        }
+
+    .btn-more {
+        background: none;
+        border: none;
+        color: var(--primary-color);
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 0 !important;
+    }
+
+        .btn-more:hover {
+            text-decoration: underline;
+        }
+
+    /* ================= TABLA ================= */
     .table-card {
         background: var(--card-bg);
         border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03);
         border: 1px solid var(--border-color);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        overflow: hidden;
     }
 
     .modern-table {
@@ -432,40 +479,48 @@
     }
 
         .modern-table th {
-            background-color: #f8fafc;
-            color: #64748b;
-            font-size: 0.8rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            padding: 1rem 1.5rem;
+            background: #f8fafc;
+            padding: 1rem;
             text-align: left;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
             border-bottom: 1px solid var(--border-color);
+            letter-spacing: 0.05em;
+            font-weight: 700;
         }
 
         .modern-table td {
-            padding: 1rem 1.5rem;
-            color: var(--text-main);
-            font-size: 0.95rem;
+            padding: 1rem;
             border-bottom: 1px solid #f1f5f9;
+            font-size: 0.9rem;
+            color: var(--text-main);
             vertical-align: middle;
         }
 
-        .modern-table tbody tr:hover {
-            background-color: #f8fafc;
+        .modern-table tr:hover {
+            background: #f8fafc;
         }
 
+    .text-id {
+        color: var(--text-muted);
+        font-family: monospace;
+        font-size: 0.85rem;
+    }
+
     .text-folio {
-        font-weight: 600;
-        color: var(--text-main);
+        font-weight: 700;
+        color: var(--primary-color);
     }
 
     .text-nombre {
         font-weight: 500;
+        color: #334155;
     }
 
-    .text-muted {
+    .text-date {
         color: var(--text-muted);
+        font-size: 0.85rem;
     }
 
     .empty-state {
@@ -473,14 +528,29 @@
         padding: 4rem !important;
         color: var(--text-muted);
         font-size: 1.1rem;
-        font-style: italic;
+    }
+
+    .content-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 4px;
+    }
+
+    .truncate-text {
+        max-width: 250px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        color: var(--text-muted);
+        display: block;
     }
 
     /* Badges de Estatus */
     .status-badge {
         padding: 4px 12px;
         border-radius: 20px;
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: 700;
         text-transform: uppercase;
         display: inline-block;
@@ -488,124 +558,78 @@
     }
 
     .status-inicio {
-        background-color: #e0e7ff;
+        background: #e0e7ff;
         color: #4338ca;
-        border: 1px solid #c7d2fe;
     }
 
     .status-proceso {
-        background-color: #fef3c7;
+        background: #fef3c7;
         color: #b45309;
-        border: 1px solid #fde68a;
     }
 
     .status-terminada {
-        background-color: #d1fae5;
-        color: #047857;
-        border: 1px solid #a7f3d0;
+        background: #d1fae5;
+        color: #065f46;
     }
 
     .status-default {
-        background-color: #f1f5f9;
+        background: #f1f5f9;
         color: #475569;
-        border: 1px solid #e2e8f0;
     }
 
-    /* Botón Ver y Ver Más */
-    .btn-action {
-        background-color: #f8fafc;
-        color: var(--primary-color);
-        border: 1px solid #cbd5e1;
-        padding: 0.4rem 0.8rem;
-        border-radius: 6px;
-        font-weight: 600;
-        font-size: 0.85rem;
-        transition: all 0.2s;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-    }
-
-        .btn-action:hover {
-            background-color: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
-
-    .content-truncate {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        color: var(--text-muted);
-        font-size: 0.9rem;
-        line-height: 1.4;
-    }
-
-    .ver-mas-link {
-        color: var(--primary-color);
-        font-size: 0.85rem;
-        font-weight: 600;
-        cursor: pointer;
-        display: inline-block;
-        margin-top: 4px;
-    }
-
-        .ver-mas-link:hover {
-            text-decoration: underline;
-        }
-
-    /* ================= PAGINACIÓN ================= */
-    .pagination-wrapper {
+    /* ================= PAGINACIÓN BLINDADA ================= */
+    .pagination-container {
+        padding: 1rem;
         display: flex;
         justify-content: center;
         align-items: center;
-        padding: 1.2rem;
-        gap: 1rem;
-        background-color: var(--card-bg);
-        border: 1px solid var(--border-color);
-        border-top: none;
-        border-bottom-left-radius: 12px;
-        border-bottom-right-radius: 12px;
+        gap: 1.5rem;
+        background: #f8fafc;
+        border-top: 1px solid var(--border-color);
     }
 
-    .btn-page {
-        background-color: #ffffff;
+    .btn-pag {
+        background: white;
         border: 1px solid var(--border-color);
-        color: var(--text-main);
-        padding: 0.4rem 1rem;
-        border-radius: 6px;
-        font-weight: 500;
+        width: 36px !important;
+        height: 36px !important;
+        border-radius: 8px;
         cursor: pointer;
         transition: all 0.2s;
-        display: flex;
+        display: inline-flex;
         align-items: center;
+        justify-content: center;
+        padding: 0 !important;
     }
 
-        .btn-page:hover:not(:disabled) {
-            background-color: #f1f5f9;
+        .btn-pag:hover:not(:disabled) {
+            border-color: var(--primary-color);
+            color: var(--primary-color);
         }
 
-        .btn-page:disabled {
-            opacity: 0.5;
+        .btn-pag:disabled {
+            opacity: 0.4;
             cursor: not-allowed;
         }
 
-    .page-info {
-        font-weight: 600;
+    .page-numbers {
+        font-size: 0.85rem;
         color: var(--text-muted);
-        font-size: 0.9rem;
     }
 
-    /* ================= MODALES MODERNOS ================= */
+        .page-numbers span {
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+    /* ================= MODALES ================= */
     .modern-modal-backdrop {
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background-color: rgba(15, 23, 42, 0.6);
+        background: rgba(15,23,42,0.6);
         backdrop-filter: blur(4px);
         display: flex;
         align-items: center;
@@ -615,14 +639,13 @@
     }
 
     .modern-modal-box {
-        background: #ffffff;
+        background: white;
         border-radius: 16px;
         width: 100%;
         max-width: 600px;
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-        transform: translateY(0);
-        animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
         overflow: hidden;
+        animation: m-slideUp 0.3s ease-out;
     }
 
     .content-modal {
@@ -630,7 +653,7 @@
     }
 
     .modal-header {
-        padding: 1.5rem 2rem;
+        padding: 1.25rem 2rem;
         border-bottom: 1px solid var(--border-color);
         display: flex;
         justify-content: space-between;
@@ -639,7 +662,7 @@
 
         .modal-header h3 {
             margin: 0;
-            font-size: 1.25rem;
+            font-size: 1.1rem;
             font-weight: 700;
             color: var(--text-main);
         }
@@ -648,13 +671,18 @@
         background: none;
         border: none;
         font-size: 1.5rem;
-        color: #94a3b8;
         cursor: pointer;
+        color: var(--text-muted);
+        padding: 0 !important;
     }
 
         .close-btn:hover {
             color: #ef4444;
         }
+
+    .modal-body {
+        padding: 1.5rem 2rem;
+    }
 
     .modal-body-scroll {
         padding: 2rem;
@@ -666,15 +694,9 @@
     }
 
     .form-grid {
-        padding: 1.5rem 2rem;
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 16px;
-    }
-
-    .input-group {
-        display: flex;
-        flex-direction: column;
+        gap: 1rem;
     }
 
     .span-2 {
@@ -682,21 +704,22 @@
     }
 
     .input-group label {
-        font-size: 0.85rem;
-        font-weight: 600;
+        display: block;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
         color: var(--text-muted);
         margin-bottom: 6px;
     }
 
     .modern-input {
-        background-color: #f8fafc;
+        width: 100%;
+        padding: 0.6rem 1rem;
         border: 1px solid var(--border-color);
         border-radius: 8px;
-        padding: 10px 14px;
-        font-size: 0.95rem;
-        color: var(--text-main);
-        width: 100%;
+        font-size: 0.9rem;
         box-sizing: border-box;
+        color: var(--text-main);
     }
 
         .modern-input:focus {
@@ -707,72 +730,64 @@
         }
 
     .modal-footer {
-        padding: 1.2rem 2rem;
+        padding: 1rem 2rem;
         background: #f8fafc;
         border-top: 1px solid var(--border-color);
         display: flex;
         justify-content: flex-end;
-        gap: 12px;
+        gap: 0.8rem;
     }
-
-    .btn-cancel {
-        background: white;
-        border: 1px solid var(--border-color);
-        padding: 0.6rem 1.2rem;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        color: var(--text-muted);
-    }
-
-        .btn-cancel:hover {
-            background: #f1f5f9;
-        }
 
     .btn-save {
         background: var(--primary-color);
         color: white;
         border: none;
-        padding: 0.6rem 1.5rem;
+        padding: 0.5rem 1.5rem;
         border-radius: 8px;
         font-weight: 600;
         cursor: pointer;
         display: flex;
         align-items: center;
+        transition: background 0.2s;
     }
 
         .btn-save:hover {
             background: var(--primary-hover);
         }
 
-    /* ================= ALERTA FLOTANTE ================= */
+    .btn-cancel {
+        background: white;
+        border: 1px solid var(--border-color);
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 600;
+        color: var(--text-muted);
+        transition: background 0.2s;
+    }
+
+        .btn-cancel:hover {
+            background: #f1f5f9;
+        }
+
     .modern-alert-float {
         position: fixed;
-        top: 24px;
-        right: 24px;
-        background-color: #fef2f2;
-        color: #b91c1c;
-        border: 1px solid #fecaca;
-        padding: 16px 24px;
+        top: 20px;
+        right: 20px;
+        background: #fff1f2;
+        color: #be123c;
+        padding: 1rem 1.5rem;
         border-radius: 12px;
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        border: 1px solid #fecaca;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
         display: flex;
         align-items: center;
+        z-index: 3000;
+        animation: m-slideIn 0.3s ease-out;
         font-weight: 600;
-        z-index: 9999;
-        animation: slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    @@keyframes fadeIn {
-        from {
-            opacity: 0;
-        }
-
-        to {
-            opacity: 1;
-        }
-    }
-    @@keyframes slideUp {
+    @@keyframes m-slideUp {
         from {
             transform: translateY(20px);
             opacity: 0;
@@ -784,15 +799,29 @@
         }
     }
 
-    @@keyframes slideLeft {
+    @@keyframes m-slideIn {
         from {
             transform: translateX(100%);
-            opacity: 0;
         }
 
         to {
             transform: translateX(0);
+        }
+    }
+
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+
+        to {
             opacity: 1;
         }
+    }
+
+    /* RESET PARA SVGS REBELDES */
+    svg {
+        max-width: 100% !important;
+        display: inline-block !important;
     }
 </style>
