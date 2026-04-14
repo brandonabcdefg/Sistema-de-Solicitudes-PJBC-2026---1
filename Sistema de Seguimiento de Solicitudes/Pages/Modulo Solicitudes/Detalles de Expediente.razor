@@ -40,7 +40,7 @@
             </button>
             @if (!EsSoloConsulta)
             {
-                <button class="btn-primary" type="button" @onclick="InvocarSubmit">
+                <button class="btn-primary" type="button" @onclick="ForzarGuardado">
                     <MudIcon Icon="@Icons.Material.Filled.Save" Style="width: 18px; height: 18px; flex-shrink: 0; margin-right: 6px;" /> Guardar Cambios
                 </button>
             }
@@ -63,8 +63,7 @@
             </div>
         </div>
 
-        <EditForm Model="@Expediente" OnValidSubmit="HandleValidSubmit" id="formExpediente">
-            <DataAnnotationsValidator />
+        <EditForm Model="@Expediente" id="formExpediente">
 
             <div class="content-grid" disabled="@EsSoloConsulta">
 
@@ -208,7 +207,6 @@
 
             </div>
 
-            <button type="submit" id="btnSubmitHidden" style="display:none;"></button>
         </EditForm>
     }
     else
@@ -248,6 +246,8 @@
             {
                 Id = expedienteDTO.Id,
                 Folio = expedienteDTO.Folio ?? string.Empty,
+                AnoAdmision = expedienteDTO.AnoAdmision,
+                MesAdmision = expedienteDTO.MesAdmision ?? string.Empty,
                 TipoSolicitud = expedienteDTO.TipoSolicitud ?? string.Empty,
                 TipoDerecho = expedienteDTO.TipoDerecho ?? string.Empty,
                 FechaInicioTramite = expedienteDTO.FechaInicio,
@@ -343,31 +343,37 @@
         set => Expediente.RecibidaRegistrada = value;
     }
 
-    private async Task HandleValidSubmit()
+    // 🔥 Este método se salta las validaciones y guarda directo a la BD
+    private async Task ForzarGuardado()
     {
-        var expedienteDTO = new ExpedienteDTO
-        {
-            Id = Expediente.Id,
-            Folio = Expediente.Folio,
-            TipoSolicitud = Expediente.TipoSolicitud,
-            TipoDerecho = Expediente.TipoDerecho,
-            FechaInicio = Expediente.FechaInicioTramite,
-            FechaLimiteRespuesta10dias = Expediente.TipoSolicitud == "DAI" ? Expediente.FechaLimiteRespuesta : null,
-            FechaLimiteRespuesta20dias = Expediente.TipoSolicitud == "ARCO" ? Expediente.FechaLimiteRespuesta : null,
-            Ampliacion = Expediente.Ampliacion,
-            Estado = Expediente.Estatus,
-            FechaRespuesta = Expediente.FechaRespuesta,
-            Prevencion = Expediente.Prevencion == "Si",
-            SubsanaPrevencionReinicoTramite = Expediente.SubsanaPrevencion,
-            FechaLimitePrevencion10dias = Expediente.FechaLimitePrevencion,
-            RecibidaRegistrada = Expediente.RecibidaRegistrada,
-            ComoDeseaRecibirRespuestaPersonaSolicitante = Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante,
-            NombreSolicitante = Expediente.Nombre,
-            CorreoElectronicoSolicitante = Expediente.CorreoElectronico,
-            ContenidoSolicitud = Expediente.ContenidoSolicitud
-        };
+        var listaExpedientes = await ExpedienteService.Lista();
+        var expedienteOriginal = listaExpedientes.FirstOrDefault(e => e.Id == Expediente.Id);
 
-        var exito = await ExpedienteService.Actualizar(expedienteDTO);
+        if (expedienteOriginal == null) return;
+
+        // Planchamos los datos de la pantalla sobre el DTO de la base de datos
+        expedienteOriginal.Folio = Expediente.Folio;
+        expedienteOriginal.AnoAdmision = Expediente.AnoAdmision;
+        expedienteOriginal.MesAdmision = Expediente.MesAdmision;
+        expedienteOriginal.TipoSolicitud = Expediente.TipoSolicitud;
+        expedienteOriginal.TipoDerecho = Expediente.TipoDerecho;
+        expedienteOriginal.FechaInicio = Expediente.FechaInicioTramite;
+        expedienteOriginal.FechaLimiteRespuesta10dias = Expediente.TipoSolicitud == "DAI" ? Expediente.FechaLimiteRespuesta : null;
+        expedienteOriginal.FechaLimiteRespuesta20dias = Expediente.TipoSolicitud == "ARCO" ? Expediente.FechaLimiteRespuesta : null;
+        expedienteOriginal.Ampliacion = Expediente.Ampliacion;
+        expedienteOriginal.Estado = Expediente.Estatus;
+        expedienteOriginal.FechaRespuesta = Expediente.FechaRespuesta;
+        expedienteOriginal.Prevencion = Expediente.Prevencion == "Si";
+        expedienteOriginal.SubsanaPrevencionReinicoTramite = Expediente.SubsanaPrevencion;
+        expedienteOriginal.FechaLimitePrevencion10dias = Expediente.FechaLimitePrevencion;
+        expedienteOriginal.RecibidaRegistrada = Expediente.RecibidaRegistrada;
+        expedienteOriginal.ComoDeseaRecibirRespuestaPersonaSolicitante = Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante;
+        expedienteOriginal.NombreSolicitante = Expediente.Nombre;
+        expedienteOriginal.CorreoElectronicoSolicitante = Expediente.CorreoElectronico;
+        expedienteOriginal.ContenidoSolicitud = Expediente.ContenidoSolicitud;
+
+        // Mandamos a guardar
+        var exito = await ExpedienteService.Actualizar(expedienteOriginal);
         if (exito)
         {
             await JSRuntime.InvokeVoidAsync("alert", "Cambios guardados correctamente.");
@@ -377,11 +383,6 @@
         {
             await JSRuntime.InvokeVoidAsync("alert", "Error al guardar los cambios.");
         }
-    }
-
-    private async Task InvocarSubmit()
-    {
-        await JSRuntime.InvokeVoidAsync("eval", "document.getElementById('btnSubmitHidden').click()");
     }
 
     private void VolverAtras()
