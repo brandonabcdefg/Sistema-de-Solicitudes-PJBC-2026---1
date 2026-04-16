@@ -194,7 +194,7 @@
     {
         var todas = await ExpedienteService.Lista();
         SolicitudesHistorial = todas
-            .Where(e => new[] { "INICIO", "PROCESO", "EN PREVENCIÓN", "EN AMPLIACIÓN", "TERMINADA", "DESECHADA", "CANCELADA" }.Contains(e.Estado))
+            .Where(e => new[] { "INICIO", "PROCESO", "EN PREVENCIÓN", "EN AMPLIACIÓN", "TERMINADA","Terminada","En proceso", "DESECHADA", "CANCELADA" }.Contains(e.Estado))
             .OrderByDescending(e => e.FechaInicio)
             .ToList();
     }
@@ -217,9 +217,11 @@
     {
         "INICIO" => "st-inicio",
         "PROCESO" => "st-proceso",
+        "En proceso" => "st-proceso",
         "EN PREVENCIÓN" => "st-prevencion",
         "EN AMPLIACIÓN" => "st-ampliacion",
         "TERMINADA" => "st-terminada",
+        "Terminada" => "st-terminada",
         "DESECHADA" => "st-desechada",
         "CANCELADA" => "st-cancelada",
         _ => "st-default"
@@ -307,8 +309,8 @@
 
         var headers = new[] {
         "ID", "Folio", "Año Admisión", "Mes Admisión", "Tipo Solicitud", "Tipo Derecho", "Nombre Solicitante",
-        "Fecha Inicio", "Límite 10 días", "Ampliación", "Sesión Ampliación", "Fecha Sesión",
-        "Límite 20 días", "Estado", "Fecha Respuesta", "Promedio Días", "¿Prevención?", "Subsanación",
+        "Fecha Inicio", "Límite 20 días", "Ampliación", "Sesión Ampliación", "Fecha Sesión",
+        "Límite 40 días", "Estado", "Fecha Respuesta", "Promedio Días", "¿Prevención?", "Subsanación",
         "Límite Prevención", "Recibida", "Recepción Manual", "Modo Respuesta", "Correo", "Contenido",
         "Área Poseedora", "Materia", "Ciudad", "Temática", "Temática Específica", "Sentido Respuesta",
         "Precisión Sentido", "Entrega", "Cobro", "Recurso", "N° Recurso", "Datos Recurso", "Nota"

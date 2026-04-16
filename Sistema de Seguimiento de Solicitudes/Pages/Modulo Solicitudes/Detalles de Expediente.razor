@@ -191,7 +191,6 @@
                                 <option value="Manual">Manual</option>
                             </InputSelect>
                         </div>
-
                         <div class="input-group span-2">
                             <label>Forma de Entrega Deseada</label>
                             <InputSelect class="modern-input" @bind-Value="Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante" disabled="@EsSoloConsulta">
@@ -202,6 +201,14 @@
                                 <option value="No aplica">No aplica</option>
                             </InputSelect>
                         </div>
+
+                        @if (Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante == "Correo")
+                        {
+                            <div class="input-group span-2">
+                                <label>Ingresa el Correo Electrónico</label>
+                                <InputText class="modern-input" @bind-Value="Expediente.CorreoElectronico" disabled="@EsSoloConsulta" placeholder="ejemplo@correo.com" />
+                            </div>
+                        }
                     </div>
                 </div>
 
@@ -275,7 +282,7 @@
     {
         if (!string.IsNullOrEmpty(Expediente.TipoSolicitud))
         {
-            var dias = Expediente.TipoSolicitud == "DAI" ? 10 : 20;
+            var dias = Expediente.TipoSolicitud == "DAI" ? 20 : 40;
             if (Expediente.Ampliacion == "Si") dias *= 2;
             Expediente.FechaLimiteRespuesta = CalcularFechaLimite(Expediente.FechaInicioTramite, dias);
         }
