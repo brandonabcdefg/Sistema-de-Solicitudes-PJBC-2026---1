@@ -91,6 +91,11 @@
                         </div>
 
                         <div class="input-group">
+                            <label>Ciudad del Solicitante</label>
+                            <InputText class="modern-input" @bind-Value="Expediente.Ciudad" disabled="@EsSoloConsulta" placeholder="Ej. Tijuana" />
+                        </div>
+
+                        <div class="input-group">
                             <label>Tipo de Solicitud</label>
                             <InputSelect class="modern-input" @bind-Value="_TipoSolicitudBind" disabled="@EsSoloConsulta">
                                 <option disabled selected value="">-- Seleccione --</option>
@@ -135,18 +140,9 @@
                             </InputSelect>
                         </div>
 
-                        <div class="input-group">
-                            <label>Estatus Actual</label>
-                            <InputSelect class="modern-input fw-bold text-primary" @bind-Value="Expediente.Estatus" disabled="@EsSoloConsulta">
-                                <option disabled selected value="">-- Seleccione --</option>
-                                <option value="En proceso">En proceso</option>
-                                <option value="Terminada">Terminada</option>
-                            </InputSelect>
-                        </div>
-
                         <div class="input-group span-2">
-                            <label>Fecha Real de Respuesta</label>
-                            <InputDate class="modern-input" @bind-Value="Expediente.FechaRespuesta" disabled="@EsSoloConsulta" />
+                            <label>Contenido de la Solicitud</label>
+                            <InputTextArea class="modern-input" @bind-Value="Expediente.ContenidoSolicitud" disabled="@EsSoloConsulta" rows="4" placeholder="Detalle íntegro de lo solicitado..." />
                         </div>
                     </div>
                 </div>
@@ -191,6 +187,15 @@
                                 <option value="Manual">Manual</option>
                             </InputSelect>
                         </div>
+
+                        @if (_RecibidaRegistradaBind == "Manual")
+                        {
+                            <div class="input-group span-2">
+                                <label>Especifique Medio de Recepción Manual</label>
+                                <InputText class="modern-input" @bind-Value="Expediente.MedioRecepcionSolicitudManual" disabled="@EsSoloConsulta" placeholder="Ej. Oficialía de Partes, Comparecencia..." />
+                            </div>
+                        }
+
                         <div class="input-group span-2">
                             <label>Forma de Entrega Deseada</label>
                             <InputSelect class="modern-input" @bind-Value="Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante" disabled="@EsSoloConsulta">
@@ -209,6 +214,137 @@
                                 <InputText class="modern-input" @bind-Value="Expediente.CorreoElectronico" disabled="@EsSoloConsulta" placeholder="ejemplo@correo.com" />
                             </div>
                         }
+                    </div>
+                </div>
+
+                <div class="card-section">
+                    <h3 class="section-title">
+                        <MudIcon Icon="@Icons.Material.Filled.Category" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px; color: #8b5cf6;" />
+                        Clasificación de la Información
+                    </h3>
+
+                    <div class="form-grid">
+                        <div class="input-group span-2">
+                            <label>Área Poseedora de la Información</label>
+                            <InputText class="modern-input" @bind-Value="Expediente.AreaInformacion" disabled="@EsSoloConsulta" placeholder="Dependencia o departamento competente" />
+                        </div>
+
+                        <div class="input-group">
+                            <label>Materia</label>
+                            <InputText class="modern-input" @bind-Value="Expediente.Materia" disabled="@EsSoloConsulta" />
+                        </div>
+
+                        <div class="input-group">
+                            <label>Temática</label>
+                            <InputText class="modern-input" @bind-Value="Expediente.Tematica" disabled="@EsSoloConsulta" />
+                        </div>
+
+                        <div class="input-group span-2">
+                            <label>Temática Específica</label>
+                            <InputText class="modern-input" @bind-Value="Expediente.TematicaEspecifica" disabled="@EsSoloConsulta" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-section">
+                    <h3 class="section-title">
+                        <MudIcon Icon="@Icons.Material.Filled.TaskAlt" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px; color: #10b981;" />
+                        Resolución y Entrega
+                    </h3>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>Estatus Actual</label>
+                            <InputSelect class="modern-input fw-bold text-primary" @bind-Value="Expediente.Estatus" disabled="@EsSoloConsulta">
+                                <option disabled selected value="">-- Seleccione --</option>
+                                <option value="INICIO">INICIO</option>
+                                <option value="EN PROCESO">EN PROCESO</option>
+                                <option value="EN PREVENCIÓN">EN PREVENCIÓN</option>
+                                <option value="EN AMPLIACIÓN">EN AMPLIACIÓN</option>
+                                <option value="TERMINADA">TERMINADA</option>
+                                <option value="DESECHADA">DESECHADA</option>
+                                <option value="CANCELADA">CANCELADA</option>
+                            </InputSelect>
+                        </div>
+
+                        <div class="input-group">
+                            <label>Fecha Real de Respuesta</label>
+                            <InputDate class="modern-input" @bind-Value="Expediente.FechaRespuesta" disabled="@EsSoloConsulta" />
+                        </div>
+
+                        <div class="input-group">
+                            <label>Sentido de la Respuesta</label>
+                            <InputSelect class="modern-input" @bind-Value="Expediente.SentidoRespuesta" disabled="@EsSoloConsulta">
+                                <option disabled selected value="">-- Seleccione --</option>
+                                <option value="Afirmativa">Afirmativa</option>
+                                <option value="Negativa">Negativa</option>
+                                <option value="Parcial">Parcial</option>
+                            </InputSelect>
+                        </div>
+
+                        <div class="input-group">
+                            <label>Precisión del Sentido</label>
+                            <InputText class="modern-input" @bind-Value="Expediente.PrecisionSentidoRespuesta" disabled="@EsSoloConsulta" />
+                        </div>
+
+                        <div class="input-group">
+                            <label>Modalidad de Entrega Real</label>
+                            <InputText class="modern-input" @bind-Value="Expediente.ModalidadEntrega" disabled="@EsSoloConsulta" />
+                        </div>
+
+                        <div class="input-group">
+                            <label>Cobro (Monto o N/A)</label>
+                            <InputText class="modern-input" @bind-Value="Expediente.Cobro" disabled="@EsSoloConsulta" placeholder="Ej. N/A o $150.00" />
+                        </div>
+
+                        @if (Expediente.Ampliacion == "Si")
+                        {
+                            <div class="divider span-2"></div>
+                            <div class="input-group">
+                                <label>N° Sesión Comité (Ampliación)</label>
+                                <InputNumber class="modern-input" @bind-Value="Expediente.NumeroSesionComiteAmpliacion" disabled="@EsSoloConsulta" />
+                            </div>
+
+                            <div class="input-group">
+                                <label>Fecha Sesión Comité</label>
+                                <InputDate class="modern-input" @bind-Value="Expediente.FechaSesionComiteAmpliacion" disabled="@EsSoloConsulta" />
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div class="card-section">
+                    <h3 class="section-title">
+                        <MudIcon Icon="@Icons.Material.Filled.Gavel" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px; color: #ef4444;" />
+                        Medios de Impugnación y Notas
+                    </h3>
+
+                    <div class="form-grid">
+                        <div class="input-group">
+                            <label>¿Interpuso Recurso de Revisión?</label>
+                            <InputSelect class="modern-input" @bind-Value="Expediente.RecursoRevision" disabled="@EsSoloConsulta">
+                                <option disabled selected value="">-- Seleccione --</option>
+                                <option value="Si">Sí</option>
+                                <option value="No">No</option>
+                            </InputSelect>
+                        </div>
+
+                        <div class="input-group">
+                            <label>N° de Recurso</label>
+                            <InputNumber class="modern-input" @bind-Value="Expediente.NumeroRecursoRevision" disabled="@(Expediente.RecursoRevision != "Si" || EsSoloConsulta)" />
+                        </div>
+
+                        <div class="input-group span-2">
+                            <label>Datos del Recurso</label>
+                            <InputTextArea class="modern-input" @bind-Value="Expediente.DatosRecursoRevision" disabled="@(Expediente.RecursoRevision != "Si" || EsSoloConsulta)" rows="2" placeholder="Motivo o detalle del recurso de revisión..." />
+                        </div>
+
+                        <div class="divider span-2"></div>
+
+                        <div class="input-group span-2">
+                            <label>Notas / Observaciones Internas</label>
+                            <InputTextArea class="modern-input" @bind-Value="Expediente.Nota" disabled="@EsSoloConsulta" rows="3" placeholder="Comentarios adicionales para control interno..." />
+                        </div>
                     </div>
                 </div>
 
@@ -269,7 +405,25 @@
                 ComoDeseaRecibirRespuestaPersonaSolicitante = expedienteDTO.ComoDeseaRecibirRespuestaPersonaSolicitante ?? string.Empty,
                 Nombre = expedienteDTO.NombreSolicitante ?? string.Empty,
                 CorreoElectronico = expedienteDTO.CorreoElectronicoSolicitante ?? string.Empty,
-                ContenidoSolicitud = expedienteDTO.ContenidoSolicitud ?? string.Empty
+                ContenidoSolicitud = expedienteDTO.ContenidoSolicitud ?? string.Empty,
+
+                // 🔥 NOMBRES Y TIPOS CORREGIDOS EXACTAMENTE COMO TU Expediente.cs 🔥
+                Ciudad = expedienteDTO.CiudadSolicitante ?? string.Empty,
+                AreaInformacion = expedienteDTO.AreaPoseedoraInformacion ?? string.Empty,
+                Materia = expedienteDTO.Materia ?? string.Empty,
+                Tematica = expedienteDTO.Tematica ?? string.Empty,
+                TematicaEspecifica = expedienteDTO.TematicaEspecifica ?? string.Empty,
+                SentidoRespuesta = expedienteDTO.SentidoRespuesta ?? string.Empty,
+                PrecisionSentidoRespuesta = expedienteDTO.PrecisionSentidoRespuesta ?? string.Empty,
+                ModalidadEntrega = expedienteDTO.ModalidadEntrega ?? string.Empty,
+                Cobro = expedienteDTO.Cobro ?? string.Empty,
+                RecursoRevision = expedienteDTO.RecursoRevision ?? string.Empty,
+                NumeroRecursoRevision = expedienteDTO.NumeroRecursoRevision,
+                DatosRecursoRevision = expedienteDTO.DatosRecursoRevision ?? string.Empty,
+                NumeroSesionComiteAmpliacion = expedienteDTO.NumeroSesionComiteAmpliacion,
+                FechaSesionComiteAmpliacion = expedienteDTO.FechaSesionComiteAmpliacion,
+                MedioRecepcionSolicitudManual = expedienteDTO.MedioRecepcionSolicitudManual ?? string.Empty,
+                Nota = expedienteDTO.Nota ?? string.Empty
             };
         }
         else
@@ -282,6 +436,7 @@
     {
         if (!string.IsNullOrEmpty(Expediente.TipoSolicitud))
         {
+            // Tiempos duplicados: DAI 20 días, ARCO 40 días
             var dias = Expediente.TipoSolicitud == "DAI" ? 20 : 40;
             if (Expediente.Ampliacion == "Si") dias *= 2;
             Expediente.FechaLimiteRespuesta = CalcularFechaLimite(Expediente.FechaInicioTramite, dias);
@@ -289,7 +444,7 @@
 
         if (Expediente.Prevencion == "Si")
         {
-            Expediente.FechaLimitePrevencion = CalcularFechaLimite(Expediente.FechaInicioTramite, 10);
+            Expediente.FechaLimitePrevencion = CalcularFechaLimite(Expediente.FechaInicioTramite, 20); // Dejamos 20 por precaución normativa
         }
         else
         {
@@ -350,7 +505,6 @@
         set => Expediente.RecibidaRegistrada = value;
     }
 
-    // 🔥 Este método se salta las validaciones y guarda directo a la BD
     private async Task ForzarGuardado()
     {
         var listaExpedientes = await ExpedienteService.Lista();
@@ -358,7 +512,6 @@
 
         if (expedienteOriginal == null) return;
 
-        // Planchamos los datos de la pantalla sobre el DTO de la base de datos
         expedienteOriginal.Folio = Expediente.Folio;
         expedienteOriginal.AnoAdmision = Expediente.AnoAdmision;
         expedienteOriginal.MesAdmision = Expediente.MesAdmision;
@@ -379,7 +532,24 @@
         expedienteOriginal.CorreoElectronicoSolicitante = Expediente.CorreoElectronico;
         expedienteOriginal.ContenidoSolicitud = Expediente.ContenidoSolicitud;
 
-        // Mandamos a guardar
+        // 🔥 MAPEO DE REGRESO USANDO TUS NOMBRES CORRECTOS 🔥
+        expedienteOriginal.CiudadSolicitante = Expediente.Ciudad;
+        expedienteOriginal.AreaPoseedoraInformacion = Expediente.AreaInformacion;
+        expedienteOriginal.Materia = Expediente.Materia;
+        expedienteOriginal.Tematica = Expediente.Tematica;
+        expedienteOriginal.TematicaEspecifica = Expediente.TematicaEspecifica;
+        expedienteOriginal.SentidoRespuesta = Expediente.SentidoRespuesta;
+        expedienteOriginal.PrecisionSentidoRespuesta = Expediente.PrecisionSentidoRespuesta;
+        expedienteOriginal.ModalidadEntrega = Expediente.ModalidadEntrega;
+        expedienteOriginal.Cobro = Expediente.Cobro;
+        expedienteOriginal.RecursoRevision = Expediente.RecursoRevision;
+        expedienteOriginal.NumeroRecursoRevision = Expediente.NumeroRecursoRevision;
+        expedienteOriginal.DatosRecursoRevision = Expediente.DatosRecursoRevision;
+        expedienteOriginal.NumeroSesionComiteAmpliacion = Expediente.NumeroSesionComiteAmpliacion;
+        expedienteOriginal.FechaSesionComiteAmpliacion = Expediente.FechaSesionComiteAmpliacion;
+        expedienteOriginal.MedioRecepcionSolicitudManual = Expediente.MedioRecepcionSolicitudManual;
+        expedienteOriginal.Nota = Expediente.Nota;
+
         var exito = await ExpedienteService.Actualizar(expedienteOriginal);
         if (exito)
         {
@@ -543,7 +713,7 @@
             grid-template-columns: 1fr;
         }
     }
-    /* Tarjetas Blancas */
+
     .card-section {
         background: #ffffff;
         border-radius: 16px;
@@ -597,7 +767,7 @@
         color: #0f172a;
         transition: all 0.2s;
         width: 100%;
-        box-sizing: border-box; /* Previene desbordamiento en inputs */
+        box-sizing: border-box;
     }
 
         .modern-input:focus {

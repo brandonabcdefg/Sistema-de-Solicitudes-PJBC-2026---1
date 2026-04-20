@@ -238,7 +238,7 @@ else {
 
     private void ActualizarFechaLimite() {
         if (!string.IsNullOrEmpty(Expediente.TipoSolicitud)) {
-            var dias = Expediente.TipoSolicitud == "DAI" ? 20 : 40;
+            var dias = Expediente.TipoSolicitud == "DAI" ? 10 : 20;
             if (Expediente.Ampliacion == "Si") dias *= 2;
             Expediente .FechaLimiteRespuesta = CalcularFechaLimite(Expediente.FechaInicioTramite, dias);
         }
