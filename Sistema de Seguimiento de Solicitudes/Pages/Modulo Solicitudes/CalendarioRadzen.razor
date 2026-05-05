@@ -86,6 +86,20 @@
     DateTime? fechaSeleccionada;
     List<DateTime> diasApagadosManualmente = new();
 
+    // 🔥 NUEVO MÉTODO: Calcula la fecha límite saltando fines de semana, festivos y días manuales
+    private DateTime CalcularFechaLimite(DateTime inicio, int dias)
+    {
+        var fecha = inicio.Date;
+        while (dias > 0)
+        {
+            fecha = fecha.AddDays(1);
+            if (EsDiaLaborable(fecha))
+            {
+                dias--;
+            }
+        }
+        return fecha;
+    }
     private readonly List<DateTime> diasFestivos = new List<DateTime>
     {
         new DateTime(DateTime.Now.Year, 1, 1),
@@ -124,13 +138,29 @@
         foreach (var expediente in expedientes.Where(e => e?.FechaInicio != null))
         {
             DateTime inicio = expediente.FechaInicio;
-            DateTime fechaFin = inicio.AddDays(10);
 
+            // 🔥 NUEVA REGLA: 20 días hábiles parejo para DAI y ARCO
+            int diasCalculo = 20;
+            
+            // Si tiene ampliación, le sumamos 10 días (Topando en 30)
+            if (expediente.Ampliacion?.ToUpper() == "SI")
+            {
+                diasCalculo += 10;
+            }
+
+            // Calculamos la fecha saltando los días inhábiles
+            DateTime fechaFin = CalcularFechaLimite(inicio, diasCalculo);
+
+            // Respetamos si la base de datos ya tenía una fecha guardada (por si se modificó manual)
             if (expediente.Prevencion == true && expediente.FechaLimitePrevencion10dias.HasValue)
             {
                 fechaFin = expediente.FechaLimitePrevencion10dias.Value;
             }
-            else if (expediente.Ampliacion == "SI" && expediente.FechaLimiteRespuesta20dias.HasValue)
+            else if (expediente.Ampliacion?.ToUpper() == "SI" && expediente.FechaLimiteRespuesta20dias.HasValue)
+            {
+                fechaFin = expediente.FechaLimiteRespuesta20dias.Value;
+            }
+            else if (expediente.FechaLimiteRespuesta20dias.HasValue)
             {
                 fechaFin = expediente.FechaLimiteRespuesta20dias.Value;
             }
@@ -138,16 +168,12 @@
             {
                 fechaFin = expediente.FechaLimiteRespuesta10dias.Value;
             }
-            else if (expediente.FechaLimiteRespuesta20dias.HasValue)
-            {
-                fechaFin = expediente.FechaLimiteRespuesta20dias.Value;
-            }
 
             listaEventos.Add(new EventoSolicitud
             {
                 Title = $"{expediente.Folio} – {expediente.NombreSolicitante}",
-                Start = inicio,
-                End = fechaFin,
+                Start = fechaFin.Date, // La pastilla solo se pinta el día de vencimiento
+                End = fechaFin.Date.AddHours(23).AddMinutes(59),
                 TipoSolicitud = expediente.TipoSolicitud ?? "",
                 TienePrevencion = expediente.Prevencion,
                 EsUrgente = false
@@ -221,24 +247,20 @@
         return dias;
     }
 
-    // 🔥 AHORA SÍ: FUERZA BRUTA DESDE C# PARA ASEGURAR COLORES 🔥
     void OnAppointmentRender(SchedulerAppointmentRenderEventArgs<EventoSolicitud> args)
     {
-        var fechaLimiteReal = args.Data.End.Date.AddDays(-1);
+        var fechaLimiteReal = args.Data.Start.Date;
         var diasHabilesRestantes = CalcularDiasHabiles(DateTime.Now.Date, fechaLimiteReal);
 
-        // Definimos los colores hexadecimales directos
-        string bgColor = "";
-        if (diasHabilesRestantes < 0) bgColor = "#64748b"; // Gris oscuro (Vencido)
-        else if (diasHabilesRestantes < 3) bgColor = "#ef4444"; // Rojo (Crítico)
-        else if (diasHabilesRestantes < 6) bgColor = "#f59e0b"; // Amarillo (Advertencia)
-        else bgColor = "#10b981"; // Verde (A tiempo)
+        // Asignamos una clase CSS dinámica según la urgencia en lugar de estilos en línea
+        string estadoClase = "";
+        if (diasHabilesRestantes < 0) estadoClase = "evento-vencido";
+        else if (diasHabilesRestantes < 3) estadoClase = "evento-critico";
+        else if (diasHabilesRestantes < 6) estadoClase = "evento-advertencia";
+        else estadoClase = "evento-atiempo";
 
-        // Inyectamos el estilo directo en el HTML del evento. Radzen no puede ignorar esto.
-        args.Attributes["style"] = $"background-color: {bgColor} !important; color: white !important; border: none !important; border-radius: 6px !important; margin: 2px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;";
-
-        // Le asignamos solo la clase del tooltip
-        args.Attributes["class"] = "tooltip-wrapper";
+        // Concatenamos las clases: la base, el tooltip y el color
+        args.Attributes["class"] = $"evento-base tooltip-wrapper {estadoClase}";
 
         string textoVencimiento = diasHabilesRestantes < 0
             ? $"¡Vencido por {Math.Abs(diasHabilesRestantes)} días hábiles!"
@@ -246,8 +268,7 @@
 
         args.Attributes["data-tooltip"] = $"{args.Data.Title}\n" +
                                           $"Tipo: {args.Data.TipoSolicitud}\n" +
-                                          $"Inicio: {args.Data.Start:dd/MM/yyyy}\n" +
-                                          $"Fin: {fechaLimiteReal:dd/MM/yyyy}\n" +
+                                          $"Día de Vencimiento: {fechaLimiteReal:dd/MM/yyyy}\n" +
                                           textoVencimiento;
     }
 
@@ -412,10 +433,66 @@
         border-radius: 8px !important;
     }
 
+    /* ================= MEJORA DEL DÍA ACTUAL ================= */
     .dia-actual {
-        background-color: rgba(79, 70, 229, 0.05) !important;
-        border-top: 3px solid var(--pro-primary) !important;
+        background-color: rgba(79, 70, 229, 0.03) !important;
+        border-top: 4px solid var(--pro-primary) !important;
+        box-shadow: inset 0 0 20px rgba(79, 70, 229, 0.05) !important;
     }
+
+    /* ================= DISEÑO LIMPIO Y MODERNO (EVENTOS) ================= */
+    .evento-base {
+        border-radius: 6px !important;
+        margin: 2px 4px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+        transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    }
+
+        .evento-base:hover {
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+            z-index: 100 !important;
+        }
+
+    /* Colores sólidos vibrantes y borde izquierdo oscuro para dar estilo de tarjeta */
+    .evento-vencido {
+        background-color: #64748b !important;
+        border-left: 4px solid #334155 !important;
+    }
+
+    .evento-critico {
+        background-color: #ef4444 !important;
+        border-left: 4px solid #991b1b !important;
+    }
+
+    .evento-advertencia {
+        background-color: #f59e0b !important;
+        border-left: 4px solid #b45309 !important;
+    }
+
+    .evento-atiempo {
+        background-color: #10b981 !important;
+        border-left: 4px solid #047857 !important;
+    }
+
+    /* 🔥 MAGIA PARA ARREGLAR LA LETRA FEA 🔥 */
+    /* Forzamos a TODOS los elementos dentro del evento a ser BLANCOS */
+    .evento-base,
+    .evento-base * {
+        color: #ffffff !important;
+    }
+
+        /* Ajustamos el contenedor del texto para que no se haga gordo ni salte de línea */
+        .evento-base .rz-event-content {
+            padding: 4px 8px !important;
+            font-weight: 600 !important;
+            font-size: 0.8rem !important;
+            white-space: nowrap !important; /* Prohíbe que el texto baje a otra línea */
+            overflow: hidden !important; /* Oculta lo que no quepa */
+            text-overflow: ellipsis !important; /* Le pone "..." si está muy largo */
+            display: block !important;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.2) !important; /* Pequeña sombrita para que resalte más */
+        }
 
     .rz-scheduler-non-working-time-cell {
         background-color: #f8fafc !important;

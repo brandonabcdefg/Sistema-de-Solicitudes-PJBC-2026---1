@@ -67,6 +67,7 @@
 
             <div class="content-grid" disabled="@EsSoloConsulta">
 
+                <!-- ================= TARJETA 1 ================= -->
                 <div class="card-section">
                     <h3 class="section-title">
                         <MudIcon Icon="@Icons.Material.Filled.Description" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px; color: #4f46e5;" />
@@ -74,9 +75,23 @@
                     </h3>
 
                     <div class="form-grid">
+                        <!-- 🔥 NUEVO: Nombre del Solicitante Editable -->
+                        <div class="input-group span-2">
+                            <label>Nombre del Solicitante</label>
+                            <InputText class="modern-input" @bind-Value="Expediente.Nombre" disabled="@EsSoloConsulta" placeholder="Nombre completo del solicitante" />
+                        </div>
+
+                        <!-- 🔥 MODIFICADO: Año de Admisión en Select (2023-2027) -->
                         <div class="input-group">
                             <label>Año de Admisión</label>
-                            <input class="modern-input" value="@Expediente.AnoAdmision" disabled />
+                            <InputSelect class="modern-input" @bind-Value="Expediente.AnoAdmision" disabled="@EsSoloConsulta">
+                                <option disabled selected value="0">-- Seleccione --</option>
+                                <option value="2023">2023</option>
+                                <option value="2024">2024</option>
+                                <option value="2025">2025</option>
+                                <option value="2026">2026</option>
+                                <option value="2027">2027</option>
+                            </InputSelect>
                         </div>
 
                         <div class="input-group">
@@ -147,6 +162,7 @@
                     </div>
                 </div>
 
+                <!-- ================= TARJETA 2 ================= -->
                 <div class="card-section">
                     <h3 class="section-title">
                         <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px; color: #f59e0b;" />
@@ -190,9 +206,14 @@
 
                         @if (_RecibidaRegistradaBind == "Manual")
                         {
+                            <!-- 🔥 MODIFICADO: Ahora es un Select cerrado en lugar de texto libre -->
                             <div class="input-group span-2">
                                 <label>Especifique Medio de Recepción Manual</label>
-                                <InputText class="modern-input" @bind-Value="Expediente.MedioRecepcionSolicitudManual" disabled="@EsSoloConsulta" placeholder="Ej. Oficialía de Partes, Comparecencia..." />
+                                <InputSelect class="modern-input" @bind-Value="Expediente.MedioRecepcionSolicitudManual" disabled="@EsSoloConsulta">
+                                    <option disabled selected value="">-- Seleccione --</option>
+                                    <option value="CORREO ELECTRÓNICO">CORREO ELECTRÓNICO</option>
+                                    <option value="PRESENTACIÓN EN MÓDULO">PRESENTACIÓN EN MÓDULO</option>
+                                </InputSelect>
                             </div>
                         }
 
@@ -214,9 +235,19 @@
                                 <InputText class="modern-input" @bind-Value="Expediente.CorreoElectronico" disabled="@EsSoloConsulta" placeholder="ejemplo@correo.com" />
                             </div>
                         }
+
+                        <!-- 🔥 NUEVO: Campo que aparece cuando Forma de Entrega es "Otro" -->
+                        @if (Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante == "Otro")
+                        {
+                            <div class="input-group span-2">
+                                <label>Especifique Otra Forma de Entrega</label>
+                                <InputText class="modern-input" @bind-Value="OtraFormaEntregaEspecifica" disabled="@EsSoloConsulta" placeholder="Ej. Copias Simples, CD, Presencial..." />
+                            </div>
+                        }
                     </div>
                 </div>
 
+                <!-- ================= TARJETA 3 ================= -->
                 <div class="card-section">
                     <h3 class="section-title">
                         <MudIcon Icon="@Icons.Material.Filled.Category" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px; color: #8b5cf6;" />
@@ -226,7 +257,13 @@
                     <div class="form-grid">
                         <div class="input-group span-2">
                             <label>Área Poseedora de la Información</label>
-                            <InputText class="modern-input" @bind-Value="Expediente.AreaInformacion" disabled="@EsSoloConsulta" placeholder="Dependencia o departamento competente" />
+                            <InputSelect class="modern-input" @bind-Value="Expediente.AreaInformacion" disabled="@EsSoloConsulta">
+                                <option disabled selected value="">-- Seleccione un Área --</option>
+                                @foreach (var area in CatalogoAreas)
+                                {
+                                    <option value="@area">@area</option>
+                                }
+                            </InputSelect>
                         </div>
 
                         <div class="input-group">
@@ -246,6 +283,7 @@
                     </div>
                 </div>
 
+                <!-- ================= TARJETA 4 ================= -->
                 <div class="card-section">
                     <h3 class="section-title">
                         <MudIcon Icon="@Icons.Material.Filled.TaskAlt" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px; color: #10b981;" />
@@ -313,6 +351,7 @@
                     </div>
                 </div>
 
+                <!-- ================= TARJETA 5 ================= -->
                 <div class="card-section">
                     <h3 class="section-title">
                         <MudIcon Icon="@Icons.Material.Filled.Gavel" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px; color: #ef4444;" />
@@ -362,10 +401,52 @@
 </div>
 
 @code {
+    // Variable local para el campo "Otro"
+    private string OtraFormaEntregaEspecifica { get; set; } = string.Empty;
+
+    private readonly List<string> CatalogoAreas = new List<string>
+    {
+        "AUTORIDAD GARANTE DEL PODER JUDICIAL",
+        "CENTRO DE CONVIVENCIA FAMILIAR SUPERVISADA",
+        "CENTRO ESTATAL DE JUSTICIA ALTERNATIVA",
+        "COMISIÓN DE CARRERA JUDICIAL",
+        "COMISIÓN DE VIGILANCIA Y DISCIPLINA",
+        "COMUNICACIÓN SOCIAL Y RELACIONES PÚBLICAS",
+        "CONSEJO DE ADMINISTRACIÓN",
+        "CONTRALORÍA",
+        "COORDINACIÓN DE PERITAJE",
+        "COORDINACIÓN DE PERITOS",
+        "DELEGACIÓN DE OFICIALÍA MAYOR EN ENSENADA Y SAN QUINTÍN",
+        "DELEGACIÓN DE OFICIALÍA MAYOR EN TIJUANA, TECATE Y PLAYAS DE ROSARITO",
+        "DEPARTAMENTO DE CONTABILIDAD Y FINANZAS",
+        "DEPARTAMENTO DE INFORMÁTICA",
+        "DEPARTAMENTO DE PROGRAMACIÓN Y PRESUPUESTOS",
+        "DEPARTAMENTO DE RECURSOS HUMANOS",
+        "DEPARTAMENTO DE SERVICIOS GENERALES",
+        "DEPARTAMENTO DEL FONDO AUXILIAR",
+        "DIRECCIÓN DE PLANEACIÓN, INNOVACIÓN Y ESTADÍSTICA",
+        "DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN",
+        "ESCUELA DE FORMACIÓN JUDICIAL",
+        "INSTITUTO DE LA JUDICATURA",
+        "OFICIALÍA DE PARTES COMÚN",
+        "OFICIALÍA MAYOR",
+        "ÓRGANO INTERNO DE CONTROL",
+        "SECRETARÍA GENERAL DE ACUERDOS DEL TRIBUNAL SUPERIOR DE JUSTICIA",
+        "SECRETARÍA GENERAL DEL CONSEJO DE ADMINISTRACIÓN",
+        "SECRETARÍA GENERAL DEL CONSEJO DE LA JUDICATURA",
+        "SERVICIO MÉDICO FORENSE",
+        "SISTEMA DE JUSTICIA PENAL ORAL",
+        "TRIBUNAL DE DISCIPLINA JUDICIAL",
+        "TRIBUNAL LABORAL",
+        "UNIDAD DE PLANEACIÓN Y DESARROLLO",
+        "UNIDAD DE TRANSPARENCIA",
+        "UNIDAD JURÍDICA Y ASESORÍA INTERNA"
+    };
+
     [Parameter] public int Id { get; set; }
     [Parameter] public string Folio { get; set; } = string.Empty;
 
-    private ClaimsPrincipal Usuario;
+    private ClaimsPrincipal? Usuario;
     private bool EsSoloConsulta => Usuario?.IsInRole("CONSULTA") ?? false;
 
     private Expediente Expediente { get; set; } = new Expediente();
@@ -402,12 +483,10 @@
                 SubsanaPrevencion = expedienteDTO.SubsanaPrevencionReinicoTramite ?? string.Empty,
                 FechaLimitePrevencion = expedienteDTO.FechaLimitePrevencion10dias,
                 RecibidaRegistrada = expedienteDTO.RecibidaRegistrada ?? string.Empty,
-                ComoDeseaRecibirRespuestaPersonaSolicitante = expedienteDTO.ComoDeseaRecibirRespuestaPersonaSolicitante ?? string.Empty,
                 Nombre = expedienteDTO.NombreSolicitante ?? string.Empty,
                 CorreoElectronico = expedienteDTO.CorreoElectronicoSolicitante ?? string.Empty,
                 ContenidoSolicitud = expedienteDTO.ContenidoSolicitud ?? string.Empty,
 
-                // 🔥 NOMBRES Y TIPOS CORREGIDOS EXACTAMENTE COMO TU Expediente.cs 🔥
                 Ciudad = expedienteDTO.CiudadSolicitante ?? string.Empty,
                 AreaInformacion = expedienteDTO.AreaPoseedoraInformacion ?? string.Empty,
                 Materia = expedienteDTO.Materia ?? string.Empty,
@@ -425,6 +504,18 @@
                 MedioRecepcionSolicitudManual = expedienteDTO.MedioRecepcionSolicitudManual ?? string.Empty,
                 Nota = expedienteDTO.Nota ?? string.Empty
             };
+
+            // 🔥 TRUCO MAGICO: Extraer "Otro" si viene concatenado de la base de datos
+            var formaDeseada = expedienteDTO.ComoDeseaRecibirRespuestaPersonaSolicitante ?? string.Empty;
+            if (formaDeseada.StartsWith("Otro:", StringComparison.OrdinalIgnoreCase))
+            {
+                Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante = "Otro";
+                OtraFormaEntregaEspecifica = formaDeseada.Substring(5).Trim();
+            }
+            else
+            {
+                Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante = formaDeseada;
+            }
         }
         else
         {
@@ -436,15 +527,14 @@
     {
         if (!string.IsNullOrEmpty(Expediente.TipoSolicitud))
         {
-            // Tiempos duplicados: DAI 20 días, ARCO 40 días
-            var dias = Expediente.TipoSolicitud == "DAI" ? 20 : 40;
-            if (Expediente.Ampliacion == "Si") dias *= 2;
+            var dias = 20;
+            if (Expediente.Ampliacion == "Si") dias += 10;
             Expediente.FechaLimiteRespuesta = CalcularFechaLimite(Expediente.FechaInicioTramite, dias);
         }
 
         if (Expediente.Prevencion == "Si")
         {
-            Expediente.FechaLimitePrevencion = CalcularFechaLimite(Expediente.FechaInicioTramite, 20); // Dejamos 20 por precaución normativa
+            Expediente.FechaLimitePrevencion = CalcularFechaLimite(Expediente.FechaInicioTramite, 20);
         }
         else
         {
@@ -527,12 +617,16 @@
         expedienteOriginal.SubsanaPrevencionReinicoTramite = Expediente.SubsanaPrevencion;
         expedienteOriginal.FechaLimitePrevencion10dias = Expediente.FechaLimitePrevencion;
         expedienteOriginal.RecibidaRegistrada = Expediente.RecibidaRegistrada;
-        expedienteOriginal.ComoDeseaRecibirRespuestaPersonaSolicitante = Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante;
         expedienteOriginal.NombreSolicitante = Expediente.Nombre;
         expedienteOriginal.CorreoElectronicoSolicitante = Expediente.CorreoElectronico;
         expedienteOriginal.ContenidoSolicitud = Expediente.ContenidoSolicitud;
 
-        // 🔥 MAPEO DE REGRESO USANDO TUS NOMBRES CORRECTOS 🔥
+        // 🔥 TRUCO MAGICO: Guardar "Otro" empaquetado en la misma columna de base de datos
+        expedienteOriginal.ComoDeseaRecibirRespuestaPersonaSolicitante = 
+            Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante == "Otro" 
+            ? $"Otro: {OtraFormaEntregaEspecifica}" 
+            : Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante;
+
         expedienteOriginal.CiudadSolicitante = Expediente.Ciudad;
         expedienteOriginal.AreaPoseedoraInformacion = Expediente.AreaInformacion;
         expedienteOriginal.Materia = Expediente.Materia;
@@ -567,7 +661,7 @@
         Navigation.NavigateTo("/menu/modulo-solicitudes/indice-expedientes");
     }
 
-    private string ObtenerClaseEstatus(string estatus)
+    private string ObtenerClaseEstatus(string? estatus)
     {
         if (string.IsNullOrEmpty(estatus)) return "bg-gray";
         return estatus.ToLower().Contains("terminada") ? "bg-green" : "bg-blue";
@@ -575,7 +669,6 @@
 }
 
 <style>
-    /* ================= CSS INCRUSTADO PARA GARANTIZAR QUE CARGUE ================= */
     .page-container {
         padding: 1.5rem 2rem;
         max-width: 1400px;
@@ -583,7 +676,6 @@
         font-family: 'Segoe UI', system-ui, sans-serif;
     }
 
-    /* ================= ENCABEZADO ================= */
     .page-header {
         display: flex;
         justify-content: space-between;
@@ -620,24 +712,12 @@
         display: inline-block;
     }
 
-    .bg-blue {
-        background-color: #3b82f6;
-    }
+    .bg-blue { background-color: #3b82f6; }
+    .bg-green { background-color: #10b981; }
+    .bg-gray { background-color: #94a3b8; }
 
-    .bg-green {
-        background-color: #10b981;
-    }
+    .header-actions { display: flex; gap: 12px; }
 
-    .bg-gray {
-        background-color: #94a3b8;
-    }
-
-    .header-actions {
-        display: flex;
-        gap: 12px;
-    }
-
-    /* ================= BOTONES ================= */
     .btn-primary, .btn-outline {
         padding: 0.6rem 1.2rem;
         border-radius: 8px;
@@ -657,10 +737,10 @@
         box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.2);
     }
 
-        .btn-primary:hover {
-            background-color: #4338ca;
-            transform: translateY(-2px);
-        }
+    .btn-primary:hover {
+        background-color: #4338ca;
+        transform: translateY(-2px);
+    }
 
     .btn-outline {
         background-color: transparent;
@@ -668,12 +748,11 @@
         border: 1px solid #e2e8f0;
     }
 
-        .btn-outline:hover {
-            background-color: #f1f5f9;
-            color: #0f172a;
-        }
+    .btn-outline:hover {
+        background-color: #f1f5f9;
+        color: #0f172a;
+    }
 
-    /* ================= INDICADOR DE ETAPA ================= */
     .stage-indicator {
         display: flex;
         margin-bottom: 2rem;
@@ -701,7 +780,6 @@
         box-shadow: 0 0 0 4px #e0e7ff;
     }
 
-    /* ================= GRID DE CONTENIDO ================= */
     .content-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -709,9 +787,7 @@
     }
 
     @@media (max-width: 968px) {
-        .content-grid {
-            grid-template-columns: 1fr;
-        }
+        .content-grid { grid-template-columns: 1fr; }
     }
 
     .card-section {
@@ -733,21 +809,14 @@
         align-items: center;
     }
 
-    /* ================= FORMULARIO & INPUTS ================= */
     .form-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 16px 20px;
     }
 
-    .input-group {
-        display: flex;
-        flex-direction: column;
-    }
-
-    .span-2 {
-        grid-column: span 2;
-    }
+    .input-group { display: flex; flex-direction: column; }
+    .span-2 { grid-column: span 2; }
 
     .input-group label {
         font-size: 0.85rem;
@@ -770,19 +839,19 @@
         box-sizing: border-box;
     }
 
-        .modern-input:focus {
-            outline: none;
-            border-color: #4f46e5;
-            box-shadow: 0 0 0 3px #e0e7ff;
-            background-color: #fff;
-        }
+    .modern-input:focus {
+        outline: none;
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 3px #e0e7ff;
+        background-color: #fff;
+    }
 
-        .modern-input:disabled, .input-readonly {
-            background-color: #f1f5f9;
-            color: #94a3b8;
-            cursor: not-allowed;
-            border-style: dashed;
-        }
+    .modern-input:disabled, .input-readonly {
+        background-color: #f1f5f9;
+        color: #94a3b8;
+        cursor: not-allowed;
+        border-style: dashed;
+    }
 
     select.modern-input {
         appearance: none;
@@ -799,7 +868,6 @@
         margin: 10px 0;
     }
 
-    /* ================= EXTRAS ================= */
     .alert-readonly {
         background-color: #fffbeb;
         color: #b45309;

@@ -33,7 +33,7 @@
                 <select class="pro-select" @bind="estadoSeleccionado">
                     <option value="">Todos los estados</option>
                     <option value="INICIO">Inicio</option>
-                    <option value="PROCESO">Proceso</option>
+                    <option value="EN PROCESO">En Proceso</option>
                     <option value="EN PREVENCIÓN">En Prevención</option>
                     <option value="EN AMPLIACIÓN">En Ampliación</option>
                     <option value="TERMINADA">Terminada</option>
@@ -67,6 +67,11 @@
                     }
                 </select>
             </div>
+
+            <!-- 🔥 NUEVO: Botón para limpiar filtros -->
+            <button class="btn-clear-filters" @onclick="LimpiarFiltros" title="Restablecer filtros">
+                <MudIcon Icon="@Icons.Material.Filled.FilterAltOff" Style="width: 20px; height: 20px;" />
+            </button>
         </div>
 
         <div class="actions-group">
@@ -81,10 +86,13 @@
             <table class="pro-table">
                 <thead>
                     <tr>
-                        <th style="width: 70px; text-align: center;">Ver</th>
+                        <th style="width: 60px; text-align: center;">Ver</th>
                         <th>Folio</th>
+                        <th style="width: 80px;">Tipo</th>
                         <th>Nombre Solicitante</th>
                         <th>Fecha Inicio</th>
+                        <th>Vencimiento</th>
+                        <th style="text-align: center;">Ampliación</th>
                         <th style="text-align: center;">Estado</th>
                         <th style="width: 60px; text-align: center;">ID</th>
                     </tr>
@@ -101,8 +109,32 @@
                                     </button>
                                 </td>
                                 <td class="text-folio">@solicitud.Folio</td>
+                                
+                                <!-- 🔥 NUEVA: Tipo de Solicitud -->
+                                <td>
+                                    <span class="badge-tipo">@(string.IsNullOrEmpty(solicitud.TipoSolicitud) ? "-" : solicitud.TipoSolicitud)</span>
+                                </td>
+
                                 <td class="text-nombre">@solicitud.NombreSolicitante</td>
                                 <td class="text-date">@solicitud.FechaInicio.ToString("dd/MM/yyyy")</td>
+                                
+                                <!-- 🔥 NUEVA: Fecha de Vencimiento -->
+                                <td class="text-date fw-bold" style="color: #334155;">
+                                    @ObtenerFechaVencimiento(solicitud)
+                                </td>
+
+                                <!-- 🔥 NUEVA: Requiere Ampliación -->
+                                <td style="text-align: center;">
+                                    @if (solicitud.Ampliacion?.ToUpper() == "SI")
+                                    {
+                                        <span class="badge-ampliacion">SÍ</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted" style="font-weight: 600;">-</span>
+                                    }
+                                </td>
+
                                 <td style="text-align: center;">
                                     <span class="status-badge @GetEstadoClass(solicitud.Estado ?? string.Empty)">
                                         @solicitud.Estado
@@ -115,10 +147,10 @@
                     else
                     {
                         <tr>
-                            <td colspan="6" class="empty-state">
+                            <td colspan="9" class="empty-state">
                                 <MudIcon Icon="@Icons.Material.Filled.SearchOff" Style="width: 48px; height: 48px; color: #cbd5e1; margin-bottom: 1.5rem;" />
                                 <p class="text-dark">No encontramos resultados.</p>
-                                <p class="text-muted text-sm">Prueba ajustando los filtros de búsqueda.</p>
+                                <p class="text-muted text-sm">Prueba ajustando o restableciendo los filtros de búsqueda.</p>
                             </td>
                         </tr>
                     }
@@ -144,8 +176,6 @@
     </div>
 </div>
 
-@* Mantenemos toda tu lógica original intacta *@
-
 @code {
     private List<ExpedienteDTO> SolicitudesHistorial = new();
     private string busqueda = string.Empty;
@@ -155,23 +185,25 @@
     private int pageSize = 12;
 
     private IEnumerable<ExpedienteDTO> SolicitudesFiltradas =>
-    SolicitudesHistorial.Where(s =>
-        (string.IsNullOrWhiteSpace(busqueda) ||
-            (!string.IsNullOrEmpty(s.NombreSolicitante) && s.NombreSolicitante.Contains(busqueda, StringComparison.OrdinalIgnoreCase)) ||
-            (!string.IsNullOrEmpty(s.Folio) && s.Folio.Contains(busqueda, StringComparison.OrdinalIgnoreCase)))
-        &&
-        (string.IsNullOrWhiteSpace(estadoSeleccionado) || s.Estado == estadoSeleccionado)
-        &&
-        (!filtroFechaDia.HasValue || s.FechaInicio.Date == filtroFechaDia.Value.Date)
-        &&
-        (!filtroMes.HasValue || s.FechaInicio.Month == filtroMes)
-        &&
-        (!filtroAno.HasValue || s.FechaInicio.Year == filtroAno)
-    );
+     SolicitudesHistorial.Where(s =>
+         (string.IsNullOrWhiteSpace(busqueda) ||
+             (!string.IsNullOrEmpty(s.NombreSolicitante) && s.NombreSolicitante.Contains(busqueda, StringComparison.OrdinalIgnoreCase)) ||
+             (!string.IsNullOrEmpty(s.Folio) && s.Folio.Contains(busqueda, StringComparison.OrdinalIgnoreCase)))
+         &&
+         (string.IsNullOrWhiteSpace(estadoSeleccionado) || (s.Estado != null && s.Estado.ToUpper() == estadoSeleccionado))
+         &&
+         (!filtroFechaDia.HasValue || s.FechaInicio.Date == filtroFechaDia.Value.Date)
+         &&
+         (!filtroMes.HasValue || s.FechaInicio.Month == filtroMes)
+         &&
+         (!filtroAno.HasValue || s.FechaInicio.Year == filtroAno)
+     );
 
+    // 🔥 ORDENADO POR FECHA DESCENDENTE (De lo más nuevo a lo más viejo)
     private IEnumerable<ExpedienteDTO> PagedExpedientes =>
         SolicitudesFiltradas
-            .OrderByDescending(e => e.Id)
+            .OrderByDescending(e => e.FechaInicio)
+            .ThenByDescending(e => e.Id)
             .Skip((currentPage - 1) * pageSize)
             .Take(pageSize);
 
@@ -193,8 +225,11 @@
     protected override async Task OnInitializedAsync()
     {
         var todas = await ExpedienteService.Lista();
+        
+        var estadosValidos = new[] { "INICIO", "EN PROCESO", "EN PREVENCIÓN", "EN AMPLIACIÓN", "TERMINADA", "DESECHADA", "CANCELADA" };
+        
         SolicitudesHistorial = todas
-            .Where(e => new[] { "INICIO", "PROCESO", "EN PREVENCIÓN", "EN AMPLIACIÓN", "TERMINADA", "DESECHADA", "CANCELADA" }.Contains(e.Estado))
+            .Where(e => !string.IsNullOrEmpty(e.Estado) && estadosValidos.Contains(e.Estado.ToUpper()))
             .OrderByDescending(e => e.FechaInicio)
             .ToList();
     }
@@ -208,6 +243,25 @@
         }
     }
 
+    // 🔥 Helper para limpiar todos los filtros a su estado original
+    private void LimpiarFiltros()
+    {
+        busqueda = string.Empty;
+        estadoSeleccionado = string.Empty;
+        filtroFechaDia = null;
+        filtroMes = null;
+        filtroAno = null;
+        currentPage = 1;
+    }
+
+    // 🔥 Helper para extraer la fecha de vencimiento sin importar la columna
+    private string ObtenerFechaVencimiento(ExpedienteDTO s)
+    {
+        if (s.FechaLimiteRespuesta20dias.HasValue) return s.FechaLimiteRespuesta20dias.Value.ToString("dd/MM/yyyy");
+        if (s.FechaLimiteRespuesta10dias.HasValue) return s.FechaLimiteRespuesta10dias.Value.ToString("dd/MM/yyyy");
+        return "Pendiente";
+    }
+
     private void VerDetalle(int id, string folio)
     {
         Navigation.NavigateTo($"/menu/modulo-solicitudes/indice-expedientes/detalles/{id}/{folio}");
@@ -216,7 +270,7 @@
     private string GetEstadoClass(string estado) => estado?.ToUpper() switch
     {
         "INICIO" => "st-inicio",
-        "PROCESO" => "st-proceso",
+        "EN PROCESO" => "st-proceso",
         "EN PREVENCIÓN" => "st-prevencion",
         "EN AMPLIACIÓN" => "st-ampliacion",
         "TERMINADA" => "st-terminada",
@@ -400,14 +454,14 @@
 <style>
     /* Variables de Diseño SaaS Pro */
     :root {
-        --pro-bg-body: #f1f5f9; /* Gris muy claro de fondo */
+        --pro-bg-body: #f1f5f9;
         --pro-card-bg: #ffffff;
-        --pro-text-main: #1e293b; /* Azul muy oscuro casi negro */
-        --pro-text-muted: #64748b; /* Gris texto secundario */
-        --pro-border: #e2e8f0; /* Gris bordes sutiles */
-        --pro-primary: #4f46e5; /* Índigo vibrante */
-        --pro-success: #10b981; /* Verde esmeralda */
-        --pro-hover: #f8fafc; /* Gris ultra claro para hovers */
+        --pro-text-main: #1e293b;
+        --pro-text-muted: #64748b;
+        --pro-border: #e2e8f0;
+        --pro-primary: #4f46e5;
+        --pro-success: #10b981;
+        --pro-hover: #f8fafc;
     }
 
     .page-container {
@@ -417,7 +471,6 @@
         font-family: 'Inter', 'Inter var', system-ui, sans-serif;
     }
 
-    /* Título SaaS */
     .header-flex {
         margin-bottom: 2rem;
     }
@@ -430,7 +483,6 @@
         letter-spacing: -0.025em;
     }
 
-    /* Barra de Acciones y Filtros Unificada */
     .filters-action-bar {
         display: flex;
         justify-content: space-between;
@@ -447,23 +499,14 @@
         flex-wrap: wrap;
     }
 
-    /* Estilo PRO para Inputs y Selects */
     .filter-search {
         position: relative;
-        width: 280px;
+        width: 260px;
     }
 
-    .filter-item {
-        width: 180px;
-    }
-
-    .filter-item-date {
-        width: 160px;
-    }
-
-    .filter-item-small {
-        width: 90px;
-    }
+    .filter-item { width: 170px; }
+    .filter-item-date { width: 150px; }
+    .filter-item-small { width: 90px; }
 
     .pro-input, .pro-select {
         width: 100%;
@@ -492,15 +535,35 @@
         width: 1px;
         height: 24px;
         background-color: var(--pro-border);
-        margin: 0 4px;
+        margin: 0 8px;
     }
 
     .text-uppercase {
         text-transform: uppercase;
     }
 
-    /* Botón Excel Pro */
-    /* !important para asegurar el control de ancho */
+    /* Botón Limpiar Filtros */
+    .btn-clear-filters {
+        width: 42px;
+        height: 42px;
+        border-radius: 8px;
+        border: 1px solid var(--pro-border);
+        background-color: white;
+        color: #ef4444; /* Rojo suave para indicar "limpiar/borrar" */
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    }
+
+    .btn-clear-filters:hover {
+        background-color: #fef2f2;
+        border-color: #fca5a5;
+        color: #dc2626;
+    }
+
     .btn-export-excel {
         width: auto !important;
         height: 42px;
@@ -518,18 +581,18 @@
         cursor: pointer;
     }
 
-        .btn-export-excel:hover {
-            background-color: #c3e6cb;
-            border-color: #b1dfbb;
-        }
+    .btn-export-excel:hover {
+        background-color: #c3e6cb;
+        border-color: #b1dfbb;
+    }
 
-    /* ================= TARJETA MAESTRA DE TABLA SaaS ================= */
+    /* Tarjeta y Tabla */
     .pro-table-card {
         background: var(--pro-card-bg);
         border-radius: 12px;
         border: 1px solid var(--pro-border);
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.03), 0 2px 4px -1px rgba(0, 0, 0, 0.02);
-        overflow: hidden; /* Encapsula todo */
+        overflow: hidden;
     }
 
     .table-container {
@@ -539,38 +602,35 @@
     .pro-table {
         width: 100%;
         border-collapse: collapse;
-        table-layout: fixed; /* Ayuda a controlar anchos de columna */
+        white-space: nowrap; /* 🔥 Evita que las celdas se amontonen, permite scroll horizontal limpio */
     }
 
-        /* Encabezado Pro */
-        .pro-table th {
-            background-color: #f8fafc; /* Gris ultra claro */
-            padding: 1rem 1.25rem;
-            text-align: left;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            color: var(--pro-text-muted);
-            border-bottom: 1px solid var(--pro-border);
-            letter-spacing: 0.05em;
-            font-weight: 700;
-        }
+    .pro-table th {
+        background-color: #f8fafc;
+        padding: 1rem 1.25rem;
+        text-align: left;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--pro-text-muted);
+        border-bottom: 1px solid var(--pro-border);
+        letter-spacing: 0.05em;
+        font-weight: 700;
+    }
 
-        /* Filas Pro */
-        .pro-table td {
-            padding: 1.25rem;
-            border-bottom: 1px solid #f1f5f9;
-            font-size: 0.95rem;
-            color: var(--pro-text-main);
-            vertical-align: middle;
-            transition: background-color 0.1s ease;
-        }
+    .pro-table td {
+        padding: 1.25rem;
+        border-bottom: 1px solid #f1f5f9;
+        font-size: 0.95rem;
+        color: var(--pro-text-main);
+        vertical-align: middle;
+        transition: background-color 0.1s ease;
+    }
 
-        /* Efecto hover suave */
-        .pro-table tbody tr:hover {
-            background-color: var(--pro-hover);
-        }
+    .pro-table tbody tr:hover {
+        background-color: var(--pro-hover);
+    }
 
-    /* Estilos de Celda específicos */
+    /* Textos y Badges */
     .text-folio {
         font-weight: 700;
         color: var(--pro-primary);
@@ -592,25 +652,26 @@
         font-size: 0.8rem;
     }
 
-    /* Empty State Moderno */
-    .empty-state {
-        text-align: center;
-        padding: 5rem 2rem !important;
-        color: var(--pro-text-muted);
-    }
-
-    .text-dark {
-        color: var(--pro-text-main);
+    .badge-tipo {
+        background-color: #f1f5f9;
+        color: #475569;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.75rem;
         font-weight: 600;
-        font-size: 1.1rem;
+        border: 1px solid #e2e8f0;
     }
 
-    .text-sm {
-        font-size: 0.9rem;
+    .badge-ampliacion {
+        background-color: #fee2e2;
+        color: #b91c1c;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        border: 1px solid #fca5a5;
     }
 
-    /* ================= ACCIONES DE FILA PRO ================= */
-    /* El botón redondo aparece solo en hover o es sutil */
     .btn-action-circle {
         width: 36px !important;
         height: 36px !important;
@@ -624,7 +685,7 @@
         transition: all 0.2s ease;
         cursor: pointer;
         padding: 0 !important;
-        opacity: 0.6; /* Sutil por defecto */
+        opacity: 0.6;
     }
 
     .pro-table tr:hover .btn-action-circle {
@@ -635,7 +696,6 @@
         box-shadow: 0 2px 4px rgba(79, 70, 229, 0.2);
     }
 
-    /* ================= BADGES MODERNOS (Soft Colors) ================= */
     .status-badge {
         padding: 5px 12px;
         border-radius: 20px;
@@ -647,49 +707,26 @@
         letter-spacing: 0.025em;
     }
 
-    /* Colores PRO pastel/suaves con texto oscuro */
-    .st-inicio {
-        background: #dbeafe;
-        color: #1e40af;
-    }
-    /* Azul */
-    .st-proceso {
-        background: #fee2e2;
-        color: #991b1b;
-    }
-    /* Rojo suave */
-    .st-prevencion {
-        background: #fef3c7;
-        color: #854d0e;
-    }
-    /* Amarillo */
-    .st-ampliacion {
-        background: #ffedd5;
-        color: #c2410c;
-    }
-    /* Naranja */
-    .st-terminada {
-        background: #d1fae5;
-        color: #065f46;
-    }
-    /* Verde */
-    .st-desechada {
-        background: #f1f5f9;
-        color: #475569;
-        border: 1px solid #e2e8f0;
-    }
-    /* Gris */
-    .st-cancelada {
-        background: #1f2937;
-        color: white;
-    }
-    /* Negro sutil */
-    .st-default {
-        background: #f8fafc;
-        color: #64748b;
+    .st-inicio { background: #dbeafe; color: #1e40af; }
+    .st-proceso { background: #fee2e2; color: #991b1b; }
+    .st-prevencion { background: #fef3c7; color: #854d0e; }
+    .st-ampliacion { background: #ffedd5; color: #c2410c; }
+    .st-terminada { background: #d1fae5; color: #065f46; }
+    .st-desechada { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+    .st-cancelada { background: #1f2937; color: white; }
+    .st-default { background: #f8fafc; color: #64748b; }
+
+    /* Empty State */
+    .empty-state {
+        text-align: center;
+        padding: 5rem 2rem !important;
+        color: var(--pro-text-muted);
     }
 
-    /* ================= PIE DE PAGINACIÓN MINIMALISTA ================= */
+    .text-dark { color: var(--pro-text-main); font-weight: 600; font-size: 1.1rem; }
+    .text-sm { font-size: 0.9rem; }
+
+    /* Paginación */
     .pagination-footer {
         padding: 1rem 1.25rem;
         background: #f8fafc;
@@ -699,17 +736,9 @@
         align-items: center;
     }
 
-    .pagination-info {
-        font-size: 0.85rem;
-    }
+    .pagination-info { font-size: 0.85rem; }
+    .pagination-controls { display: flex; align-items: center; gap: 1rem; }
 
-    .pagination-controls {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-
-    /* !important para asegurar control de ancho */
     .btn-pag-small {
         width: 32px !important;
         height: 32px !important;
@@ -725,30 +754,14 @@
         padding: 0 !important;
     }
 
-        .btn-pag-small:hover:not(:disabled) {
-            border-color: var(--pro-primary);
-            color: var(--pro-primary);
-            background: #f5f3ff;
-        }
-
-        .btn-pag-small:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-    .page-text {
-        font-size: 0.85rem;
-        color: var(--pro-text-muted);
+    .btn-pag-small:hover:not(:disabled) {
+        border-color: var(--pro-primary);
+        color: var(--pro-primary);
+        background: #f5f3ff;
     }
 
-        .page-text span {
-            font-weight: 700;
-            color: var(--pro-text-main);
-        }
-
-    /* RESET PARA SVGS REBELDES */
-    svg {
-        max-width: 100% !important;
-        display: inline-block !important;
-    }
+    .btn-pag-small:disabled { opacity: 0.4; cursor: not-allowed; }
+    .page-text { font-size: 0.85rem; color: var(--pro-text-muted); }
+    .page-text span { font-weight: 700; color: var(--pro-text-main); }
+    svg { max-width: 100% !important; display: inline-block !important; }
 </style>
