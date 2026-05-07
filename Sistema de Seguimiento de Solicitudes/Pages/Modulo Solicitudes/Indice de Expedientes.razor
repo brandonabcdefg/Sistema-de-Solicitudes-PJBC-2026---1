@@ -6,6 +6,7 @@
 @using System.Collections.Generic
 @using SolicitudesShared
 @using Sistema_de_Seguimiento_de_Solicitudes.Services
+@using Sistema_de_Seguimiento_de_Solicitudes.Models
 @using System.Text.Json
 @using Microsoft.AspNetCore.Components.Authorization
 @using MudBlazor
@@ -15,6 +16,7 @@
 @inject NavigationManager Navigation
 @inject IJSRuntime JSRuntime
 @inject IExpedienteService ExpedienteService
+@inject ICalendarioService CalendarioService
 
 <PageTitle>Índice de Solicitudes</PageTitle>
 
@@ -112,55 +114,382 @@
     </div>
 </div>
 
+<!-- ================= MODAL DE REGISTRO (GRANDE) ================= -->
 @if (MostrarFormularioModal)
 {
     <div class="modern-modal-backdrop" @onclick="CerrarFormulario">
-        <div class="modern-modal-box" @onclick:stopPropagation>
+        <div class="modern-modal-box large-modal" @onclick:stopPropagation>
             <div class="modal-header">
-                <h3>Nuevo Expediente</h3>
+                <h3>Registrar Nuevo Expediente</h3>
                 <button class="close-btn" @onclick="CerrarFormulario">&times;</button>
             </div>
+<EditForm Model="NuevoExpedienteVM" OnSubmit="GuardarExpediente">
+                <!-- Quitamos el DataAnnotationsValidator para que no bloquee los campos ocultos -->
 
-            <EditForm Model="NuevoExpediente" OnValidSubmit="GuardarExpediente">
-                <DataAnnotationsValidator />
+                <div class="scrollable-modal-body">
+                    <div class="content-grid" disabled="@EsSoloConsulta">
 
-                <div class="modal-body form-grid">
-                    <div class="input-group">
-                        <label for="Folio">Folio</label>
-                        <InputText id="Folio" class="modern-input" @bind-Value="NuevoExpediente.Folio" maxlength="20" placeholder="Ej. 12345678" />
-                    </div>
+                        <!-- TARJETA 1: DATOS GENERALES -->
+                        <div class="card-section">
+                            <h3 class="section-title">
+                                <MudIcon Icon="@Icons.Material.Filled.Description" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px; color: #4f46e5;" />
+                                Datos Generales
+                            </h3>
+                            <div class="form-grid">
+                                <div class="input-group">
+                                    <label>Folio (Obligatorio)</label>
+                                    <InputText class="modern-input" @bind-Value="NuevoExpedienteVM.Folio" maxlength="20" placeholder="Ej. 12345678" />
+                                </div>
+                                <div class="input-group">
+                                    <label>Nombre del Solicitante</label>
+                                    <InputText class="modern-input" @bind-Value="NuevoExpedienteVM.Nombre" placeholder="Nombre completo" />
+                                </div>
 
-                    <div class="input-group">
-                        <label for="Nombre">Nombre del Solicitante</label>
-                        <InputText id="Nombre" class="modern-input" @bind-Value="NuevoExpediente.NombreSolicitante" placeholder="Nombre completo" />
-                    </div>
+                                <div class="input-group">
+                                    <label>Año de Admisión</label>
+                                    <InputSelect class="modern-input" TValue="int" @bind-Value="NuevoExpedienteVM.AnoAdmision">
+                                        <option disabled value="0">-- Seleccione --</option>
+                                        <option value="2023">2023</option>
+                                        <option value="2024">2024</option>
+                                        <option value="2025">2025</option>
+                                        <option value="2026">2026</option>
+                                        <option value="2027">2027</option>
+                                    </InputSelect>
+                                </div>
+                                <div class="input-group">
+                                    <label>Mes de Admisión</label>
+                                    <InputSelect class="modern-input" @bind-Value="NuevoExpedienteVM.MesAdmision">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        @foreach (var mes in Catalogos.MesesAdmision)
+                                        {
+                                            <option value="@mes">@mes</option>
+                                        }
+                                    </InputSelect>
+                                </div>
 
-                    <div class="input-group">
-                        <label for="FechaInicioTramite">Fecha de Inicio</label>
-                        <InputDate id="FechaInicioTramite" class="modern-input" @bind-Value="NuevoExpediente.FechaInicio" />
-                    </div>
+                                <div class="input-group">
+                                    <label>Ciudad del Solicitante</label>
+                                    <InputSelect class="modern-input" @bind-Value="NuevoExpedienteVM.Ciudad">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        @foreach (var ciudad in Catalogos.Ciudades)
+                                        {
+                                            <option value="@ciudad">@ciudad</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                                <div class="input-group">
+                                    <label>Tipo de Solicitud</label>
+                                    <InputSelect class="modern-input" @bind-Value="_TipoSolicitudBind">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        <option value="DAI">DAI</option>
+                                        <option value="ARCO">ARCO</option>
+                                    </InputSelect>
+                                </div>
 
-                    <div class="input-group">
-                        <label for="Estatus">Estatus</label>
-                        <InputSelect id="Estatus" class="modern-input" @bind-Value="NuevoExpediente.Estado">
-                            <option value="" disabled selected>Selecciona una opción</option>
-                            @foreach (var estado in ListaEstados)
-                            {
-                                <option value="@estado">@estado</option>
-                            }
-                        </InputSelect>
-                    </div>
+                                <div class="input-group">
+                                    <label>Tipo de Derecho</label>
+                                    <InputSelect class="modern-input" @bind-Value="NuevoExpedienteVM.TipoDerecho" disabled="@(NuevoExpedienteVM.TipoSolicitud != "ARCO")">
+                                        @if (NuevoExpedienteVM.TipoSolicitud == "ARCO")
+                                        {
+                                            @foreach (var derechoArco in Catalogos.SolicitudARCO)
+                                            {
+                                                <option value="@derechoArco">@derechoArco</option>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <option value="">-- N/A --</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+                                <div class="input-group">
+                                    <label>Fecha de Inicio</label>
+                                    <InputDate class="modern-input" @bind-Value="NuevoExpedienteVM.FechaInicioTramite" />
+                                </div>
 
-                    <div class="input-group span-2">
-                        <label for="ContenidoSolicitud">Contenido de la Solicitud</label>
-                        <InputTextArea id="ContenidoSolicitud" class="modern-input" @bind-Value="NuevoExpediente.ContenidoSolicitud" rows="4" placeholder="Escribe el detalle de la solicitud aquí..." />
+                                <div class="input-group">
+                                    <label>Límite de Respuesta</label>
+                                    <InputDate class="modern-input input-readonly" @bind-Value="NuevoExpedienteVM.FechaLimiteRespuesta" disabled />
+                                </div>
+                                <div class="input-group">
+                                    <label>¿Aplica Ampliación?</label>
+                                    <InputSelect class="modern-input" @bind-Value="_AmpliacionBind">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        <option value="Si">Sí</option>
+                                        <option value="No">No</option>
+                                    </InputSelect>
+                                </div>
+
+                                <div class="input-group span-2">
+                                    <label>Contenido de la Solicitud</label>
+                                    <InputTextArea class="modern-input" @bind-Value="NuevoExpedienteVM.ContenidoSolicitud" rows="4" placeholder="Detalle íntegro de lo solicitado..." />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TARJETA 2: PREVENCIÓN Y RECEPCIÓN -->
+                        <div class="card-section">
+                            <h3 class="section-title">
+                                <MudIcon Icon="@Icons.Material.Filled.WarningAmber" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px; color: #f59e0b;" />
+                                Prevención y Recepción
+                            </h3>
+                            <div class="form-grid">
+                                <div class="input-group">
+                                    <label>¿Requiere Prevención?</label>
+                                    <InputSelect class="modern-input" @bind-Value="_PrevencionBind">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        <option value="Si">Sí</option>
+                                        <option value="No">No</option>
+                                    </InputSelect>
+                                </div>
+                                <div class="input-group">
+                                    <label>Subsana Prevención</label>
+                                    <InputSelect class="modern-input" @bind-Value="NuevoExpedienteVM.SubsanaPrevencion" disabled="@(NuevoExpedienteVM.Prevencion != "Si")">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        <option value="Si">Sí</option>
+                                        <option value="No">No</option>
+                                    </InputSelect>
+                                </div>
+
+                                <div class="input-group span-2">
+                                    <label>Fecha Límite para Prevención</label>
+                                    <InputDate class="modern-input input-readonly" @bind-Value="NuevoExpedienteVM.FechaLimitePrevencion" disabled />
+                                </div>
+                                <div class="divider span-2"></div>
+
+                                <div class="input-group span-2">
+                                    <label>Vía de Recepción</label>
+                                    <InputSelect class="modern-input" @bind-Value="_RecibidaRegistradaBind">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        <option value="PNT">PNT</option>
+                                        <option value="Manual">Manual</option>
+                                        <option value="Otro">Otro</option>
+                                    </InputSelect>
+                                </div>
+
+                                @if (_RecibidaRegistradaBind == "Manual")
+                                {
+                                    <div class="input-group span-2">
+                                        <label>Medio de Recepción Manual</label>
+                                        <InputSelect class="modern-input" @bind-Value="NuevoExpedienteVM.MedioRecepcionSolicitudManual">
+                                            <option disabled selected value="">-- Seleccione --</option>
+                                            <option value="CORREO ELECTRÓNICO">CORREO ELECTRÓNICO</option>
+                                            <option value="PRESENTACIÓN EN MÓDULO">PRESENTACIÓN EN MÓDULO</option>
+                                            <option value="Otro">Otro</option>
+                                        </InputSelect>
+                                    </div>
+                                    @if (NuevoExpedienteVM.MedioRecepcionSolicitudManual == "Otro")
+                                    {
+                                        <div class="input-group span-2">
+                                            <label>Especifique otro medio manual</label>
+                                            <InputText class="modern-input" @bind-Value="_EspecificarMedioManual" placeholder="Ej. Comparecencia..." />
+                                        </div>
+                                    }
+                                }
+                                else if (_RecibidaRegistradaBind == "Otro")
+                                {
+                                    <div class="input-group span-2">
+                                        <label>Especifique otra Vía de Recepción</label>
+                                        <InputText class="modern-input" @bind-Value="NuevoExpedienteVM.MedioRecepcionSolicitudManual" placeholder="Ej. Plataforma estatal..." />
+                                    </div>
+                                }
+
+                                <div class="input-group span-2">
+                                    <label>Forma de Entrega Deseada</label>
+                                    <InputSelect class="modern-input" @bind-Value="NuevoExpedienteVM.ComoDeseaRecibirRespuestaPersonaSolicitante">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        <option value="ELECTRÓNICO A TRAVÉS DE PNT">ELECTRÓNICO A TRAVÉS DE PNT</option>
+                                        <option value="CORREO ELECTRÓNICO">CORREO ELECTRÓNICO</option>
+                                        <option value="MEDIO ELECTRÓNICO DEL SOLICITANTE">MEDIO ELECTRÓNICO DEL SOLICITANTE</option>
+                                        <option value="COPIA SIMPLE">COPIA SIMPLE</option>
+                                        <option value="COPIA CERTIFICADA">COPIA CERTIFICADA</option>
+                                        <option value="CUALQUIER OTRO MEDIO ELECTRÓNICO">CUALQUIER OTRO MEDIO ELECTRÓNICO</option>
+                                    </InputSelect>
+                                </div>
+
+                                @if (NuevoExpedienteVM.ComoDeseaRecibirRespuestaPersonaSolicitante == "CORREO ELECTRÓNICO")
+                                {
+                                    <div class="input-group span-2">
+                                        <label>Ingresa el Correo Electrónico</label>
+                                        <InputText class="modern-input" @bind-Value="NuevoExpedienteVM.CorreoElectronico" placeholder="ejemplo@correo.com" />
+                                    </div>
+                                }
+                                else if (NuevoExpedienteVM.ComoDeseaRecibirRespuestaPersonaSolicitante == "CUALQUIER OTRO MEDIO ELECTRÓNICO")
+                                {
+                                    <div class="input-group span-2">
+                                        <label>Especifique otro medio de entrega</label>
+                                        <InputText class="modern-input" @bind-Value="_EspecificarOtroMedioEntrega" placeholder="Ej. WhatsApp, USB..." />
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- TARJETA 3: CLASIFICACIÓN -->
+                        <div class="card-section">
+                            <h3 class="section-title">
+                                <MudIcon Icon="@Icons.Material.Filled.Category" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px; color: #8b5cf6;" />
+                                Clasificación de la Información
+                            </h3>
+                            <div class="form-grid">
+                                <div class="input-group span-2">
+                                    <label>Área Poseedora de la Información</label>
+                                    <InputSelect class="modern-input" @bind-Value="NuevoExpedienteVM.AreaInformacion">
+                                        <option disabled selected value="">-- Seleccione un Área --</option>
+                                        @foreach (var area in CatalogoAreas)
+                                        {
+                                            <option value="@area">@area</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+
+                                <div class="input-group">
+                                    <label>Materia</label>
+                                    <InputSelect class="modern-input" @bind-Value="NuevoExpedienteVM.Materia">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        @foreach (var materia in Catalogos.Materia)
+                                        {
+                                            <option value="@materia">@materia</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+
+                                <div class="input-group">
+                                    <label>Temática</label>
+                                    <InputSelect class="modern-input" @bind-Value="NuevoExpedienteVM.Tematica">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        @foreach (var tematica in Catalogos.Tematica)
+                                        {
+                                            <option value="@tematica">@tematica</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+
+                                <div class="input-group span-2">
+                                    <label>Temática Específica</label>
+                                    <InputText class="modern-input" @bind-Value="NuevoExpedienteVM.TematicaEspecifica" placeholder="Especifique los detalles..." />
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TARJETA 4: RESOLUCIÓN -->
+                        <div class="card-section">
+                            <h3 class="section-title">
+                                <MudIcon Icon="@Icons.Material.Filled.TaskAlt" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px; color: #10b981;" />
+                                Resolución y Entrega
+                            </h3>
+                            <div class="form-grid">
+                                <div class="input-group">
+                                    <label>Estatus Actual</label>
+                                    <InputSelect class="modern-input fw-bold text-primary" @bind-Value="NuevoExpedienteVM.Estatus">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        <option value="INICIO">INICIO</option>
+                                        <option value="EN PROCESO">EN PROCESO</option>
+                                        <option value="EN PREVENCIÓN">EN PREVENCIÓN</option>
+                                        <option value="EN AMPLIACIÓN">EN AMPLIACIÓN</option>
+                                        <option value="TERMINADA">TERMINADA</option>
+                                        <option value="DESECHADA">DESECHADA</option>
+                                        <option value="CANCELADA">CANCELADA</option>
+                                    </InputSelect>
+                                </div>
+
+                                <div class="input-group">
+                                    <label>Fecha Real de Respuesta</label>
+                                    <InputDate class="modern-input" @bind-Value="NuevoExpedienteVM.FechaRespuesta" />
+                                </div>
+
+                                <div class="input-group">
+                                    <label>Sentido de la Respuesta</label>
+                                    <InputSelect class="modern-input" @bind-Value="NuevoExpedienteVM.SentidoRespuesta">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        <option value="Afirmativa">Afirmativa</option>
+                                        <option value="Negativa">Negativa</option>
+                                        <option value="Parcial">Parcial</option>
+                                    </InputSelect>
+                                </div>
+
+                                <div class="input-group">
+                                    <label>Precisión del Sentido</label>
+                                    <InputSelect class="modern-input" @bind-Value="NuevoExpedienteVM.PrecisionSentidoRespuesta">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        @foreach (var precision in Catalogos.PrecicionSentidoRespuesta)
+                                        {
+                                            <option value="@precision">@precision</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+
+                                <div class="input-group">
+                                    <label>Modalidad de Entrega Real</label>
+                                    <InputSelect class="modern-input" @bind-Value="NuevoExpedienteVM.ModalidadEntrega">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        @foreach (var modalidad in Catalogos.ModalidadEntrega)
+                                        {
+                                            <option value="@modalidad">@modalidad</option>
+                                        }
+                                    </InputSelect>
+                                </div>
+
+                                <div class="input-group">
+                                    <label>Cobro (Monto o N/A)</label>
+                                    <InputText class="modern-input" @bind-Value="NuevoExpedienteVM.Cobro" placeholder="Ej. N/A o $150.00" />
+                                </div>
+
+                                @if (NuevoExpedienteVM.Ampliacion == "Si")
+                                {
+                                    <div class="divider span-2"></div>
+                                    <div class="input-group">
+                                        <label>N° Sesión Comité (Ampliación)</label>
+                                        <InputNumber class="modern-input" @bind-Value="NuevoExpedienteVM.NumeroSesionComiteAmpliacion" />
+                                    </div>
+                                    <div class="input-group">
+                                        <label>Fecha Sesión Comité</label>
+                                        <InputDate class="modern-input" @bind-Value="NuevoExpedienteVM.FechaSesionComiteAmpliacion" />
+                                    </div>
+                                }
+                            </div>
+                        </div>
+
+                        <!-- TARJETA 5: IMPUGNACIÓN -->
+                        <div class="card-section">
+                            <h3 class="section-title">
+                                <MudIcon Icon="@Icons.Material.Filled.Gavel" Style="width: 24px; height: 24px; flex-shrink: 0; margin-right: 10px; color: #ef4444;" />
+                                Medios de Impugnación y Notas
+                            </h3>
+                            <div class="form-grid">
+                                <div class="input-group">
+                                    <label>¿Interpuso Recurso de Revisión?</label>
+                                    <InputSelect class="modern-input" @bind-Value="NuevoExpedienteVM.RecursoRevision">
+                                        <option disabled selected value="">-- Seleccione --</option>
+                                        <option value="Si">Sí</option>
+                                        <option value="No">No</option>
+                                    </InputSelect>
+                                </div>
+
+                                <div class="input-group">
+                                    <label>N° de Recurso</label>
+                                    <InputNumber class="modern-input" @bind-Value="NuevoExpedienteVM.NumeroRecursoRevision" disabled="@(NuevoExpedienteVM.RecursoRevision != "Si")" />
+                                </div>
+
+                                <div class="input-group span-2">
+                                    <label>Datos del Recurso</label>
+                                    <InputTextArea class="modern-input" @bind-Value="NuevoExpedienteVM.DatosRecursoRevision" disabled="@(NuevoExpedienteVM.RecursoRevision != "Si")" rows="2" placeholder="Motivo o detalle del recurso de revisión..." />
+                                </div>
+                                <div class="divider span-2"></div>
+
+                                <div class="input-group span-2">
+                                    <label>Notas / Observaciones Internas</label>
+                                    <InputTextArea class="modern-input" @bind-Value="NuevoExpedienteVM.Nota" rows="3" placeholder="Comentarios adicionales para control interno..." />
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
                 <div class="modal-footer">
                     <button type="button" class="btn-cancel" @onclick="CerrarFormulario">Cancelar</button>
                     <button type="submit" class="btn-save">
-                        <MudIcon Icon="@Icons.Material.Filled.Save" Style="width: 18px; height: 18px; flex-shrink: 0; margin-right: 6px;" /> Guardar
+                        <MudIcon Icon="@Icons.Material.Filled.Save" Style="width: 18px; height: 18px; flex-shrink: 0; margin-right: 6px;" /> Registrar Expediente
                     </button>
                 </div>
             </EditForm>
@@ -168,6 +497,7 @@
     </div>
 }
 
+<!-- ================= MODAL LECTURA CONTENIDO ================= -->
 <div id="myModal" class="modern-modal-backdrop" style="display: none;" @onclick="CloseModal">
     <div class="modern-modal-box content-modal" @onclick:stopPropagation>
         <div class="modal-header">
@@ -189,9 +519,56 @@
 }
 
 @code {
-    private bool MostrarModal { get; set; } = false;
+    // 🔥 ViewModel para el Formulario Idéntico al de Detalles 🔥
+    private Expediente NuevoExpedienteVM { get; set; } = new Expediente();
+    private bool EsSoloConsulta = false; // Siempre falso porque estamos creando
+
+    // Variables de apoyo para los combos de "Otro"
+    private string OtraFormaEntregaEspecifica { get; set; } = string.Empty;
+    private string _EspecificarMedioManual = string.Empty;
+    private string _EspecificarOtroMedioEntrega = string.Empty;
+
+    // Catálogo de áreas
+    private readonly List<string> CatalogoAreas = new List<string>
+    {
+        "AUTORIDAD GARANTE DEL PODER JUDICIAL",
+        "CENTRO DE CONVIVENCIA FAMILIAR SUPERVISADA",
+        "CENTRO ESTATAL DE JUSTICIA ALTERNATIVA",
+        "COMISIÓN DE CARRERA JUDICIAL",
+        "COMISIÓN DE VIGILANCIA Y DISCIPLINA",
+        "COMUNICACIÓN SOCIAL Y RELACIONES PÚBLICAS",
+        "CONSEJO DE ADMINISTRACIÓN",
+        "CONTRALORÍA",
+        "COORDINACIÓN DE PERITAJE",
+        "COORDINACIÓN DE PERITOS",
+        "DELEGACIÓN DE OFICIALÍA MAYOR EN ENSENADA Y SAN QUINTÍN",
+        "DELEGACIÓN DE OFICIALÍA MAYOR EN TIJUANA, TECATE Y PLAYAS DE ROSARITO",
+        "DEPARTAMENTO DE CONTABILIDAD Y FINANZAS",
+        "DEPARTAMENTO DE INFORMÁTICA",
+        "DEPARTAMENTO DE PROGRAMACIÓN Y PRESUPUESTOS",
+        "DEPARTAMENTO DE RECURSOS HUMANOS",
+        "DEPARTAMENTO DE SERVICIOS GENERALES",
+        "DEPARTAMENTO DEL FONDO AUXILIAR",
+        "DIRECCIÓN DE PLANEACIÓN, INNOVACIÓN Y ESTADÍSTICA",
+        "DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN",
+        "ESCUELA DE FORMACIÓN JUDICIAL",
+        "INSTITUTO DE LA JUDICATURA",
+        "OFICIALÍA DE PARTES COMÚN",
+        "OFICIALÍA MAYOR",
+        "ÓRGANO INTERNO DE CONTROL",
+        "SECRETARÍA GENERAL DE ACUERDOS DEL TRIBUNAL SUPERIOR DE JUSTICIA",
+        "SECRETARÍA GENERAL DEL CONSEJO DE ADMINISTRACIÓN",
+        "SECRETARÍA GENERAL DEL CONSEJO DE LA JUDICATURA",
+        "SERVICIO MÉDICO FORENSE",
+        "SISTEMA DE JUSTICIA PENAL ORAL",
+        "TRIBUNAL DE DISCIPLINA JUDICIAL",
+        "TRIBUNAL LABORAL",
+        "UNIDAD DE PLANEACIÓN Y DESARROLLO",
+        "UNIDAD DE TRANSPARENCIA",
+        "UNIDAD JURÍDICA Y ASESORÍA INTERNA"
+    };
+
     private bool MostrarFormularioModal { get; set; } = false;
-    private int IdEliminar { get; set; }
     private string MensajeError { get; set; } = "";
     private bool MostrarMensajeError { get; set; } = false;
     private string modalContenido = "";
@@ -212,9 +589,8 @@
 
     List<ExpedienteDTO>? listaExpedientes = null;
     private List<ExpedienteDTO> ExpedientesFiltrados { get; set; } = new();
-    private ExpedienteDTO NuevoExpediente { get; set; } = new();
-
     private bool PuedeCapturar = false;
+    private List<DateTime> DiasInhabiles { get; set; } = new();
 
     private int currentPage = 1;
     private int pageSize = 12;
@@ -241,6 +617,10 @@
 
         PuedeCapturar = user.IsInRole("CAPTURA") || user.IsInRole("SUPERVISIÓN") || user.IsInRole("ADMINISTRADOR");
 
+        DiasInhabiles = (await CalendarioService.ObtenerDiasInhabiles())
+            .Select(d => d.Fecha.Date)
+            .ToList();
+
         listaExpedientes = await ExpedienteService.Lista();
         ExpedientesFiltrados = new List<ExpedienteDTO>(listaExpedientes.OrderByDescending(e => e.Id));
     }
@@ -260,14 +640,6 @@
         StateHasChanged();
     }
 
-    private async Task LimpiarBusqueda()
-    {
-        Filtro = string.Empty;
-        listaExpedientes = await ExpedienteService.Lista();
-        ExpedientesFiltrados = new List<ExpedienteDTO>(listaExpedientes.OrderByDescending(e => e.Id));
-        currentPage = 1;
-    }
-
     private void VerDetalle(int id)
     {
         var expediente = listaExpedientes!.FirstOrDefault(e => e.Id == id);
@@ -277,34 +649,165 @@
         }
     }
 
-    private List<string> ListaEstados = new() { "INICIO", "EN PROCESO", "TERMINADA" };
+    private void MostrarFormulario()
+    {
+        NuevoExpedienteVM = new Expediente();
+        MostrarFormularioModal = true;
+    }
 
-    private void MostrarFormulario() => MostrarFormularioModal = true;
-    private void CerrarFormulario() => MostrarFormularioModal = false;
+    private void CerrarFormulario()
+    {
+        MostrarFormularioModal = false;
+    }
 
+    // ================= LÓGICA DE FECHAS Y BINDINGS =================
+    private void ActualizarFechaLimite()
+    {
+        if (!string.IsNullOrEmpty(NuevoExpedienteVM.TipoSolicitud))
+        {
+            var dias = 20;
+            if (NuevoExpedienteVM.Ampliacion == "Si") dias += 10;
+            NuevoExpedienteVM.FechaLimiteRespuesta = CalcularFechaLimite(NuevoExpedienteVM.FechaInicioTramite, dias);
+        }
+
+        if (NuevoExpedienteVM.Prevencion == "Si")
+        {
+            NuevoExpedienteVM.FechaLimitePrevencion = CalcularFechaLimite(NuevoExpedienteVM.FechaInicioTramite, 20);
+        }
+        else
+        {
+            NuevoExpedienteVM.FechaLimitePrevencion = null;
+            NuevoExpedienteVM.SubsanaPrevencion = string.Empty;
+        }
+    }
+
+    private DateTime CalcularFechaLimite(DateTime inicio, int dias)
+    {
+        var fecha = inicio.Date;
+        while (dias > 0)
+        {
+            fecha = fecha.AddDays(1);
+            if (fecha.DayOfWeek != DayOfWeek.Saturday &&
+                fecha.DayOfWeek != DayOfWeek.Sunday &&
+                !DiasInhabiles.Contains(fecha.Date))
+            {
+                dias--;
+            }
+        }
+        return fecha;
+    }
+
+    private string _TipoSolicitudBind
+    {
+        get => NuevoExpedienteVM.TipoSolicitud;
+        set { NuevoExpedienteVM.TipoSolicitud = value; ActualizarFechaLimite(); }
+    }
+
+    private string _AmpliacionBind
+    {
+        get => NuevoExpedienteVM.Ampliacion;
+        set { NuevoExpedienteVM.Ampliacion = value; ActualizarFechaLimite(); }
+    }
+
+    private string _PrevencionBind
+    {
+        get => NuevoExpedienteVM.Prevencion;
+        set { NuevoExpedienteVM.Prevencion = value; ActualizarFechaLimite(); }
+    }
+
+    private string _RecibidaRegistradaBind
+    {
+        get => NuevoExpedienteVM.RecibidaRegistrada;
+        set => NuevoExpedienteVM.RecibidaRegistrada = value;
+    }
+
+    // ================= GUARDAR Y MAPEAR =================
     private async Task GuardarExpediente()
     {
-        if (string.IsNullOrWhiteSpace(NuevoExpediente.Folio))
+        if (string.IsNullOrWhiteSpace(NuevoExpedienteVM.Folio))
         {
             await MostrarAlerta("EL FOLIO ES OBLIGATORIO.");
             return;
         }
 
-        if (listaExpedientes!.Any(e => e.Folio == NuevoExpediente.Folio))
+        if (listaExpedientes!.Any(e => e.Folio == NuevoExpedienteVM.Folio))
         {
             await MostrarAlerta("EL FOLIO YA EXISTE EN EL SISTEMA.");
             return;
         }
 
-        NuevoExpediente.FechaInicio = NuevoExpediente.FechaInicio.Date.Add(DateTime.Now.TimeOfDay);
+        // Mapeo del ViewModel (Expediente) a DataTransferObject (ExpedienteDTO)
+        var dto = new ExpedienteDTO
+        {
+            Folio = NuevoExpedienteVM.Folio,
+            AnoAdmision = NuevoExpedienteVM.AnoAdmision,
+            MesAdmision = NuevoExpedienteVM.MesAdmision,
+            TipoSolicitud = NuevoExpedienteVM.TipoSolicitud,
+            TipoDerecho = NuevoExpedienteVM.TipoDerecho,
+            FechaInicio = NuevoExpedienteVM.FechaInicioTramite.Date.Add(DateTime.Now.TimeOfDay),
+            FechaLimiteRespuesta10dias = NuevoExpedienteVM.TipoSolicitud == "DAI" ? NuevoExpedienteVM.FechaLimiteRespuesta : null,
+            FechaLimiteRespuesta20dias = NuevoExpedienteVM.TipoSolicitud == "ARCO" ? NuevoExpedienteVM.FechaLimiteRespuesta : null,
+            Ampliacion = NuevoExpedienteVM.Ampliacion,
+            Estado = NuevoExpedienteVM.Estatus,
+            FechaRespuesta = NuevoExpedienteVM.FechaRespuesta,
+            Prevencion = NuevoExpedienteVM.Prevencion == "Si",
+            SubsanaPrevencionReinicoTramite = NuevoExpedienteVM.SubsanaPrevencion,
+            FechaLimitePrevencion10dias = NuevoExpedienteVM.FechaLimitePrevencion,
+            RecibidaRegistrada = NuevoExpedienteVM.RecibidaRegistrada,
+            NombreSolicitante = NuevoExpedienteVM.Nombre,
+            CorreoElectronicoSolicitante = NuevoExpedienteVM.CorreoElectronico,
+            ContenidoSolicitud = NuevoExpedienteVM.ContenidoSolicitud,
+            CiudadSolicitante = NuevoExpedienteVM.Ciudad,
+            AreaPoseedoraInformacion = NuevoExpedienteVM.AreaInformacion,
+            Materia = NuevoExpedienteVM.Materia,
+            Tematica = NuevoExpedienteVM.Tematica,
+            TematicaEspecifica = NuevoExpedienteVM.TematicaEspecifica,
+            SentidoRespuesta = NuevoExpedienteVM.SentidoRespuesta,
+            PrecisionSentidoRespuesta = NuevoExpedienteVM.PrecisionSentidoRespuesta,
+            ModalidadEntrega = NuevoExpedienteVM.ModalidadEntrega,
+            Cobro = NuevoExpedienteVM.Cobro,
+            RecursoRevision = NuevoExpedienteVM.RecursoRevision,
+            NumeroRecursoRevision = NuevoExpedienteVM.NumeroRecursoRevision,
+            DatosRecursoRevision = NuevoExpedienteVM.DatosRecursoRevision,
+            NumeroSesionComiteAmpliacion = NuevoExpedienteVM.NumeroSesionComiteAmpliacion,
+            FechaSesionComiteAmpliacion = NuevoExpedienteVM.FechaSesionComiteAmpliacion,
+            Nota = NuevoExpedienteVM.Nota
+        };
 
-        await ExpedienteService.Crear(NuevoExpediente);
+        // Lógica para encapsular los campos "Otro"
+        if (NuevoExpedienteVM.RecibidaRegistrada == "Manual" && NuevoExpedienteVM.MedioRecepcionSolicitudManual == "Otro")
+        {
+            dto.MedioRecepcionSolicitudManual = "Otro: " + _EspecificarMedioManual;
+        }
+        else if (NuevoExpedienteVM.RecibidaRegistrada == "Otro")
+        {
+            dto.MedioRecepcionSolicitudManual = NuevoExpedienteVM.MedioRecepcionSolicitudManual;
+        }
+        else
+        {
+            dto.MedioRecepcionSolicitudManual = NuevoExpedienteVM.MedioRecepcionSolicitudManual;
+        }
+
+        if (NuevoExpedienteVM.ComoDeseaRecibirRespuestaPersonaSolicitante == "CUALQUIER OTRO MEDIO ELECTRÓNICO")
+        {
+            dto.ComoDeseaRecibirRespuestaPersonaSolicitante = "Otro: " + _EspecificarOtroMedioEntrega;
+        }
+        else if (NuevoExpedienteVM.ComoDeseaRecibirRespuestaPersonaSolicitante == "Otro")
+        {
+            dto.ComoDeseaRecibirRespuestaPersonaSolicitante = "Otro Forma: " + OtraFormaEntregaEspecifica;
+        }
+        else
+        {
+            dto.ComoDeseaRecibirRespuestaPersonaSolicitante = NuevoExpedienteVM.ComoDeseaRecibirRespuestaPersonaSolicitante;
+        }
+
+        await ExpedienteService.Crear(dto);
 
         listaExpedientes = await ExpedienteService.Lista();
         ExpedientesFiltrados = new List<ExpedienteDTO>(listaExpedientes.OrderByDescending(e => e.Id));
 
         MostrarFormularioModal = false;
-        NuevoExpediente = new ExpedienteDTO();
+        NuevoExpedienteVM = new Expediente();
     }
 
     private async Task MostrarAlerta(string mensaje)
@@ -378,450 +881,230 @@
     }
 
     /* ================= BARRA DE BÚSQUEDA ================= */
-    .search-bar-wrapper {
-        margin-bottom: 1.5rem;
-    }
-
-    .search-container {
-        position: relative;
-        max-width: 500px;
-    }
-
+    .search-bar-wrapper { margin-bottom: 1.5rem; }
+    .search-container { position: relative; max-width: 500px; }
     .search-input {
-        width: 100%;
-        padding: 0.7rem 1rem 0.7rem 2.8rem;
-        border: 1px solid var(--border-color);
-        border-radius: 10px;
-        background: white;
-        transition: all 0.2s;
-        color: var(--text-main);
+        width: 100%; padding: 0.7rem 1rem 0.7rem 2.8rem;
+        border: 1px solid var(--border-color); border-radius: 10px;
+        background: white; transition: all 0.2s; color: var(--text-main);
+    }
+    .search-input:focus {
+        outline: none; border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
     }
 
-        .search-input:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
-        }
-
-    /* ================= BOTONES BLINDADOS CONTRA APP.CSS ================= */
-    /* El !important obliga a que ignore cualquier botón genérico que ocupe 100% */
+    /* ================= BOTONES ================= */
     .btn-new, .btn-save, .btn-cancel, .btn-view-circle, .btn-pag, .btn-more, .close-btn {
         width: auto !important;
     }
 
     .btn-new {
-        background-color: var(--primary-color);
-        color: white;
-        border: none;
-        padding: 0.6rem 1.2rem;
-        border-radius: 8px;
-        font-weight: 600;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-        box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2);
+        background-color: var(--primary-color); color: white; border: none;
+        padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600;
+        display: inline-flex; align-items: center; justify-content: center;
+        transition: all 0.2s; box-shadow: 0 4px 10px rgba(79, 70, 229, 0.2);
         cursor: pointer;
     }
-
-        .btn-new:hover {
-            transform: translateY(-1px);
-            background: var(--primary-hover);
-        }
+    .btn-new:hover { transform: translateY(-1px); background: var(--primary-hover); }
 
     .btn-view-circle {
-        width: 36px !important;
-        height: 36px !important;
-        border-radius: 50%;
-        border: 1px solid var(--border-color);
-        background: white;
-        color: var(--text-muted);
-        transition: all 0.2s;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        padding: 0 !important;
+        width: 36px !important; height: 36px !important; border-radius: 50%;
+        border: 1px solid var(--border-color); background: white;
+        color: var(--text-muted); transition: all 0.2s;
+        display: inline-flex; align-items: center; justify-content: center;
+        cursor: pointer; padding: 0 !important;
     }
-
-        .btn-view-circle:hover {
-            background: var(--primary-color);
-            color: white;
-            border-color: var(--primary-color);
-        }
+    .btn-view-circle:hover {
+        background: var(--primary-color); color: white; border-color: var(--primary-color);
+    }
 
     .btn-more {
-        background: none;
-        border: none;
-        color: var(--primary-color);
-        font-size: 0.8rem;
-        font-weight: 600;
-        cursor: pointer;
-        padding: 0 !important;
+        background: none; border: none; color: var(--primary-color);
+        font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 0 !important;
     }
-
-        .btn-more:hover {
-            text-decoration: underline;
-        }
+    .btn-more:hover { text-decoration: underline; }
 
     /* ================= TABLA ================= */
     .table-card {
-        background: var(--card-bg);
-        border-radius: 12px;
-        border: 1px solid var(--border-color);
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        background: var(--card-bg); border-radius: 12px;
+        border: 1px solid var(--border-color); box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         overflow: hidden;
     }
 
-    .modern-table {
-        width: 100%;
-        border-collapse: collapse;
+    .modern-table { width: 100%; border-collapse: collapse; }
+    .modern-table th {
+        background: #f8fafc; padding: 1rem; text-align: left;
+        font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted);
+        border-bottom: 1px solid var(--border-color); font-weight: 700; letter-spacing: 0.05em;
     }
-
-        .modern-table th {
-            background: #f8fafc;
-            padding: 1rem;
-            text-align: left;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            border-bottom: 1px solid var(--border-color);
-            letter-spacing: 0.05em;
-            font-weight: 700;
-        }
-
-        .modern-table td {
-            padding: 1rem;
-            border-bottom: 1px solid #f1f5f9;
-            font-size: 0.9rem;
-            color: var(--text-main);
-            vertical-align: middle;
-        }
-
-        .modern-table tr:hover {
-            background: #f8fafc;
-        }
-
-    .text-id {
-        color: var(--text-muted);
-        font-family: monospace;
-        font-size: 0.85rem;
+    .modern-table td {
+        padding: 1rem; border-bottom: 1px solid #f1f5f9;
+        font-size: 0.9rem; color: var(--text-main); vertical-align: middle;
     }
+    .modern-table tr:hover { background: #f8fafc; }
 
-    .text-folio {
-        font-weight: 700;
-        color: var(--primary-color);
-    }
+    .text-id { color: var(--text-muted); font-family: monospace; font-size: 0.85rem; }
+    .text-folio { font-weight: 700; color: var(--primary-color); }
+    .text-nombre { font-weight: 500; color: #334155; }
+    .text-date { color: var(--text-muted); font-size: 0.85rem; }
+    .empty-state { text-align: center; padding: 4rem !important; color: var(--text-muted); font-size: 1.1rem; }
 
-    .text-nombre {
-        font-weight: 500;
-        color: #334155;
-    }
-
-    .text-date {
-        color: var(--text-muted);
-        font-size: 0.85rem;
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 4rem !important;
-        color: var(--text-muted);
-        font-size: 1.1rem;
-    }
-
-    .content-cell {
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 4px;
-    }
-
+    .content-cell { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
     .truncate-text {
-        max-width: 250px;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        color: var(--text-muted);
-        display: block;
+        max-width: 250px; white-space: nowrap; overflow: hidden;
+        text-overflow: ellipsis; color: var(--text-muted); display: block;
     }
 
     /* Badges de Estatus */
     .status-badge {
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.7rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        display: inline-block;
-        white-space: nowrap;
+        padding: 4px 12px; border-radius: 20px; font-size: 0.7rem;
+        font-weight: 700; text-transform: uppercase; display: inline-block; white-space: nowrap;
     }
+    .status-inicio { background: #e0e7ff; color: #4338ca; }
+    .status-proceso { background: #fef3c7; color: #b45309; }
+    .status-terminada { background: #d1fae5; color: #065f46; }
+    .status-default { background: #f1f5f9; color: #475569; }
 
-    .status-inicio {
-        background: #e0e7ff;
-        color: #4338ca;
-    }
-
-    .status-proceso {
-        background: #fef3c7;
-        color: #b45309;
-    }
-
-    .status-terminada {
-        background: #d1fae5;
-        color: #065f46;
-    }
-
-    .status-default {
-        background: #f1f5f9;
-        color: #475569;
-    }
-
-    /* ================= PAGINACIÓN BLINDADA ================= */
+    /* ================= PAGINACIÓN ================= */
     .pagination-container {
-        padding: 1rem;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 1.5rem;
-        background: #f8fafc;
+        padding: 1rem; display: flex; justify-content: center;
+        align-items: center; gap: 1.5rem; background: #f8fafc;
         border-top: 1px solid var(--border-color);
     }
-
     .btn-pag {
-        background: white;
-        border: 1px solid var(--border-color);
-        width: 36px !important;
-        height: 36px !important;
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 !important;
+        background: white; border: 1px solid var(--border-color);
+        width: 36px !important; height: 36px !important; border-radius: 8px;
+        cursor: pointer; transition: all 0.2s; display: inline-flex;
+        align-items: center; justify-content: center; padding: 0 !important;
     }
+    .btn-pag:hover:not(:disabled) { border-color: var(--primary-color); color: var(--primary-color); }
+    .btn-pag:disabled { opacity: 0.4; cursor: not-allowed; }
+    .page-numbers { font-size: 0.85rem; color: var(--text-muted); }
+    .page-numbers span { font-weight: 800; color: var(--text-main); }
 
-        .btn-pag:hover:not(:disabled) {
-            border-color: var(--primary-color);
-            color: var(--primary-color);
-        }
-
-        .btn-pag:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-    .page-numbers {
-        font-size: 0.85rem;
-        color: var(--text-muted);
-    }
-
-        .page-numbers span {
-            font-weight: 800;
-            color: var(--text-main);
-        }
-
-    /* ================= MODALES ================= */
+    /* ================= MODALES (Incluyendo Extendido) ================= */
     .modern-modal-backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(15,23,42,0.6);
-        backdrop-filter: blur(4px);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 2000;
-        animation: fadeIn 0.2s ease-out;
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(15,23,42,0.6); backdrop-filter: blur(4px);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 2000; animation: fadeIn 0.2s ease-out;
     }
 
     .modern-modal-box {
-        background: white;
-        border-radius: 16px;
-        width: 100%;
-        max-width: 600px;
-        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-        overflow: hidden;
-        animation: m-slideUp 0.3s ease-out;
+        background: white; border-radius: 16px; width: 100%;
+        max-width: 600px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+        overflow: hidden; animation: m-slideUp 0.3s ease-out;
     }
 
-    .content-modal {
-        max-width: 700px;
-    }
+    /* Modal Extendido para el formulario completo */
+    .large-modal { max-width: 1200px; }
 
     .modal-header {
-        padding: 1.25rem 2rem;
-        border-bottom: 1px solid var(--border-color);
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
+        padding: 1.25rem 2rem; border-bottom: 1px solid var(--border-color);
+        display: flex; justify-content: space-between; align-items: center;
     }
-
-        .modal-header h3 {
-            margin: 0;
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--text-main);
-        }
+    .modal-header h3 { margin: 0; font-size: 1.1rem; font-weight: 700; color: var(--text-main); }
 
     .close-btn {
-        background: none;
-        border: none;
-        font-size: 1.5rem;
-        cursor: pointer;
-        color: var(--text-muted);
-        padding: 0 !important;
+        background: none; border: none; font-size: 1.5rem; cursor: pointer;
+        color: var(--text-muted); padding: 0 !important;
     }
+    .close-btn:hover { color: #ef4444; }
 
-        .close-btn:hover {
-            color: #ef4444;
-        }
-
-    .modal-body {
-        padding: 1.5rem 2rem;
+    .scrollable-modal-body {
+        max-height: 75vh;
+        overflow-y: auto;
+        background: #f1f5f9;
+        padding: 1.5rem;
     }
 
     .modal-body-scroll {
-        padding: 2rem;
-        max-height: 60vh;
-        overflow-y: auto;
-        color: #334155;
-        line-height: 1.6;
-        white-space: pre-wrap;
+        padding: 2rem; max-height: 60vh; overflow-y: auto; color: #334155;
+        line-height: 1.6; white-space: pre-wrap;
     }
 
-    .form-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
+    /* ================= ESTILOS DE FORMULARIO DENTRO DEL MODAL ================= */
+    .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    @@media (max-width: 968px) { .content-grid { grid-template-columns: 1fr; } }
+
+    .card-section {
+        background: #ffffff; border-radius: 16px; padding: 2rem;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03); border: 1px solid #e2e8f0;
+    }
+    .section-title {
+        font-size: 1.25rem; font-weight: 700; color: #0f172a;
+        margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 2px solid #f1f5f9;
+        display: flex; align-items: center;
     }
 
-    .span-2 {
-        grid-column: span 2;
-    }
-
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 20px; }
+    .input-group { display: flex; flex-direction: column; }
+    .span-2 { grid-column: span 2; }
     .input-group label {
-        display: block;
-        font-size: 0.75rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        color: var(--text-muted);
-        margin-bottom: 6px;
+        font-size: 0.85rem; font-weight: 600; color: #64748b;
+        margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.03em;
     }
 
     .modern-input {
-        width: 100%;
-        padding: 0.6rem 1rem;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        font-size: 0.9rem;
-        box-sizing: border-box;
-        color: var(--text-main);
+        background-color: #f8fafc; border: 1px solid #e2e8f0;
+        border-radius: 8px; padding: 10px 14px; font-size: 0.95rem;
+        color: #0f172a; transition: all 0.2s; width: 100%; box-sizing: border-box;
+    }
+    .modern-input:focus {
+        outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px #e0e7ff; background-color: #fff;
+    }
+    .modern-input:disabled, .input-readonly {
+        background-color: #f1f5f9; color: #94a3b8; cursor: not-allowed; border-style: dashed;
     }
 
-        .modern-input:focus {
-            outline: none;
-            border-color: var(--primary-color);
-            box-shadow: 0 0 0 3px #e0e7ff;
-            background: #fff;
-        }
+    select.modern-input {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 12px center;
+        background-size: 16px; padding-right: 40px;
+    }
 
+    .divider { height: 1px; background-color: #e2e8f0; margin: 10px 0; }
+
+    /* ================= PIE DE MODAL ================= */
     .modal-footer {
-        padding: 1rem 2rem;
-        background: #f8fafc;
-        border-top: 1px solid var(--border-color);
-        display: flex;
-        justify-content: flex-end;
-        gap: 0.8rem;
+        padding: 1rem 2rem; background: #ffffff; border-top: 1px solid var(--border-color);
+        display: flex; justify-content: flex-end; gap: 0.8rem;
     }
 
     .btn-save {
-        background: var(--primary-color);
-        color: white;
-        border: none;
-        padding: 0.5rem 1.5rem;
-        border-radius: 8px;
-        font-weight: 600;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        transition: background 0.2s;
+        background: var(--primary-color); color: white; border: none;
+        padding: 0.6rem 1.5rem; border-radius: 8px; font-weight: 600; cursor: pointer;
+        display: flex; align-items: center; transition: background 0.2s;
     }
-
-        .btn-save:hover {
-            background: var(--primary-hover);
-        }
+    .btn-save:hover { background: var(--primary-hover); }
 
     .btn-cancel {
-        background: white;
-        border: 1px solid var(--border-color);
-        padding: 0.5rem 1rem;
-        border-radius: 8px;
-        cursor: pointer;
-        font-weight: 600;
-        color: var(--text-muted);
+        background: white; border: 1px solid var(--border-color); padding: 0.6rem 1.5rem;
+        border-radius: 8px; cursor: pointer; font-weight: 600; color: var(--text-muted);
         transition: background 0.2s;
     }
+    .btn-cancel:hover { background: #f1f5f9; }
 
-        .btn-cancel:hover {
-            background: #f1f5f9;
-        }
-
+    /* Alerta Flotante */
     .modern-alert-float {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #fff1f2;
-        color: #be123c;
-        padding: 1rem 1.5rem;
-        border-radius: 12px;
-        border: 1px solid #fecaca;
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
-        display: flex;
-        align-items: center;
-        z-index: 3000;
-        animation: m-slideIn 0.3s ease-out;
-        font-weight: 600;
+        position: fixed; top: 20px; right: 20px; background: #fff1f2; color: #be123c;
+        padding: 1rem 1.5rem; border-radius: 12px; border: 1px solid #fecaca;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); display: flex; align-items: center;
+        z-index: 3000; animation: m-slideIn 0.3s ease-out; font-weight: 600;
     }
 
+    /* Animaciones */
     @@keyframes m-slideUp {
-        from {
-            transform: translateY(20px);
-            opacity: 0;
-        }
-
-        to {
-            transform: translateY(0);
-            opacity: 1;
-        }
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
     }
-
     @@keyframes m-slideIn {
-        from {
-            transform: translateX(100%);
-        }
-
-        to {
-            transform: translateX(0);
-        }
+        from { transform: translateX(100%); }
+        to { transform: translateX(0); }
     }
-
     @@keyframes fadeIn {
-        from {
-            opacity: 0;
-        }
-
-        to {
-            opacity: 1;
-        }
-    }
-
-    /* RESET PARA SVGS REBELDES */
-    svg {
-        max-width: 100% !important;
-        display: inline-block !important;
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
 </style>

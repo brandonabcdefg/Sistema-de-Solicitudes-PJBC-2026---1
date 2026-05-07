@@ -75,17 +75,15 @@
                     </h3>
 
                     <div class="form-grid">
-                        <!-- 🔥 NUEVO: Nombre del Solicitante Editable -->
                         <div class="input-group span-2">
                             <label>Nombre del Solicitante</label>
                             <InputText class="modern-input" @bind-Value="Expediente.Nombre" disabled="@EsSoloConsulta" placeholder="Nombre completo del solicitante" />
                         </div>
 
-                        <!-- 🔥 MODIFICADO: Año de Admisión en Select (2023-2027) -->
                         <div class="input-group">
                             <label>Año de Admisión</label>
-                            <InputSelect class="modern-input" @bind-Value="Expediente.AnoAdmision" disabled="@EsSoloConsulta">
-                                <option disabled selected value="0">-- Seleccione --</option>
+                            <InputSelect class="modern-input" TValue="int" @bind-Value="Expediente.AnoAdmision" disabled="@EsSoloConsulta">
+                                <option disabled value="0">-- Seleccione --</option>
                                 <option value="2023">2023</option>
                                 <option value="2024">2024</option>
                                 <option value="2025">2025</option>
@@ -105,9 +103,16 @@
                             </InputSelect>
                         </div>
 
+                        <!-- 🔥 MODIFICADO: Ciudades por Catálogo -->
                         <div class="input-group">
                             <label>Ciudad del Solicitante</label>
-                            <InputText class="modern-input" @bind-Value="Expediente.Ciudad" disabled="@EsSoloConsulta" placeholder="Ej. Tijuana" />
+                            <InputSelect class="modern-input" @bind-Value="Expediente.Ciudad" disabled="@EsSoloConsulta">
+                                <option disabled selected value="">-- Seleccione --</option>
+                                @foreach (var ciudad in Catalogos.Ciudades)
+                                {
+                                    <option value="@ciudad">@ciudad</option>
+                                }
+                            </InputSelect>
                         </div>
 
                         <div class="input-group">
@@ -196,24 +201,40 @@
                         <div class="divider span-2"></div>
 
                         <div class="input-group span-2">
-                            <label>Vía de Recepción (PNT / Manual)</label>
+                            <label>Vía de Recepción</label>
                             <InputSelect class="modern-input" @bind-Value="_RecibidaRegistradaBind" disabled="@EsSoloConsulta">
                                 <option disabled selected value="">-- Seleccione --</option>
                                 <option value="PNT">PNT</option>
                                 <option value="Manual">Manual</option>
+                                <option value="Otro">Otro</option>
                             </InputSelect>
                         </div>
 
                         @if (_RecibidaRegistradaBind == "Manual")
                         {
-                            <!-- 🔥 MODIFICADO: Ahora es un Select cerrado en lugar de texto libre -->
                             <div class="input-group span-2">
-                                <label>Especifique Medio de Recepción Manual</label>
+                                <label>Medio de Recepción Manual</label>
                                 <InputSelect class="modern-input" @bind-Value="Expediente.MedioRecepcionSolicitudManual" disabled="@EsSoloConsulta">
                                     <option disabled selected value="">-- Seleccione --</option>
                                     <option value="CORREO ELECTRÓNICO">CORREO ELECTRÓNICO</option>
                                     <option value="PRESENTACIÓN EN MÓDULO">PRESENTACIÓN EN MÓDULO</option>
+                                    <option value="Otro">Otro</option>
                                 </InputSelect>
+                            </div>
+
+                            @if (Expediente.MedioRecepcionSolicitudManual == "Otro")
+                            {
+                                <div class="input-group span-2">
+                                    <label>Especifique otro medio manual</label>
+                                    <InputText class="modern-input" @bind-Value="_EspecificarMedioManual" disabled="@EsSoloConsulta" placeholder="Ej. Comparecencia..." />
+                                </div>
+                            }
+                        }
+                        else if (_RecibidaRegistradaBind == "Otro")
+                        {
+                            <div class="input-group span-2">
+                                <label>Especifique otra Vía de Recepción</label>
+                                <InputText class="modern-input" @bind-Value="Expediente.MedioRecepcionSolicitudManual" disabled="@EsSoloConsulta" placeholder="Ej. Plataforma estatal..." />
                             </div>
                         }
 
@@ -221,27 +242,27 @@
                             <label>Forma de Entrega Deseada</label>
                             <InputSelect class="modern-input" @bind-Value="Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante" disabled="@EsSoloConsulta">
                                 <option disabled selected value="">-- Seleccione --</option>
-                                <option value="Electrónico PNT">Electrónico PNT</option>
-                                <option value="Correo">Correo</option>
-                                <option value="Otro">Otro</option>
-                                <option value="No aplica">No aplica</option>
+                                <option value="ELECTRÓNICO A TRAVÉS DE PNT">ELECTRÓNICO A TRAVÉS DE PNT</option>
+                                <option value="CORREO ELECTRÓNICO">CORREO ELECTRÓNICO</option>
+                                <option value="MEDIO ELECTRÓNICO DEL SOLICITANTE">MEDIO ELECTRÓNICO DEL SOLICITANTE</option>
+                                <option value="COPIA SIMPLE">COPIA SIMPLE</option>
+                                <option value="COPIA CERTIFICADA">COPIA CERTIFICADA</option>
+                                <option value="CUALQUIER OTRO MEDIO ELECTRÓNICO">CUALQUIER OTRO MEDIO ELECTRÓNICO</option>
                             </InputSelect>
                         </div>
 
-                        @if (Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante == "Correo")
+                        @if (Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante == "CORREO ELECTRÓNICO")
                         {
                             <div class="input-group span-2">
                                 <label>Ingresa el Correo Electrónico</label>
                                 <InputText class="modern-input" @bind-Value="Expediente.CorreoElectronico" disabled="@EsSoloConsulta" placeholder="ejemplo@correo.com" />
                             </div>
                         }
-
-                        <!-- 🔥 NUEVO: Campo que aparece cuando Forma de Entrega es "Otro" -->
-                        @if (Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante == "Otro")
+                        else if (Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante == "CUALQUIER OTRO MEDIO ELECTRÓNICO")
                         {
                             <div class="input-group span-2">
-                                <label>Especifique Otra Forma de Entrega</label>
-                                <InputText class="modern-input" @bind-Value="OtraFormaEntregaEspecifica" disabled="@EsSoloConsulta" placeholder="Ej. Copias Simples, CD, Presencial..." />
+                                <label>Especifique otro medio de entrega</label>
+                                <InputText class="modern-input" @bind-Value="_EspecificarOtroMedioEntrega" disabled="@EsSoloConsulta" placeholder="Ej. WhatsApp, USB..." />
                             </div>
                         }
                     </div>
@@ -266,19 +287,33 @@
                             </InputSelect>
                         </div>
 
+                        <!-- 🔥 MODIFICADO: Materia por Catálogo -->
                         <div class="input-group">
                             <label>Materia</label>
-                            <InputText class="modern-input" @bind-Value="Expediente.Materia" disabled="@EsSoloConsulta" />
+                            <InputSelect class="modern-input" @bind-Value="Expediente.Materia" disabled="@EsSoloConsulta">
+                                <option disabled selected value="">-- Seleccione --</option>
+                                @foreach (var materia in Catalogos.Materia)
+                                {
+                                    <option value="@materia">@materia</option>
+                                }
+                            </InputSelect>
                         </div>
 
+                        <!-- 🔥 MODIFICADO: Temática por Catálogo -->
                         <div class="input-group">
                             <label>Temática</label>
-                            <InputText class="modern-input" @bind-Value="Expediente.Tematica" disabled="@EsSoloConsulta" />
+                            <InputSelect class="modern-input" @bind-Value="Expediente.Tematica" disabled="@EsSoloConsulta">
+                                <option disabled selected value="">-- Seleccione --</option>
+                                @foreach (var tematica in Catalogos.Tematica)
+                                {
+                                    <option value="@tematica">@tematica</option>
+                                }
+                            </InputSelect>
                         </div>
 
                         <div class="input-group span-2">
                             <label>Temática Específica</label>
-                            <InputText class="modern-input" @bind-Value="Expediente.TematicaEspecifica" disabled="@EsSoloConsulta" />
+                            <InputText class="modern-input" @bind-Value="Expediente.TematicaEspecifica" disabled="@EsSoloConsulta" placeholder="Especifique los detalles..." />
                         </div>
                     </div>
                 </div>
@@ -320,14 +355,28 @@
                             </InputSelect>
                         </div>
 
+                        <!-- 🔥 MODIFICADO: Precisión del sentido por Catálogo -->
                         <div class="input-group">
                             <label>Precisión del Sentido</label>
-                            <InputText class="modern-input" @bind-Value="Expediente.PrecisionSentidoRespuesta" disabled="@EsSoloConsulta" />
+                            <InputSelect class="modern-input" @bind-Value="Expediente.PrecisionSentidoRespuesta" disabled="@EsSoloConsulta">
+                                <option disabled selected value="">-- Seleccione --</option>
+                                @foreach (var precision in Catalogos.PrecicionSentidoRespuesta)
+                                {
+                                    <option value="@precision">@precision</option>
+                                }
+                            </InputSelect>
                         </div>
 
+                        <!-- 🔥 MODIFICADO: Modalidad de Entrega por Catálogo -->
                         <div class="input-group">
                             <label>Modalidad de Entrega Real</label>
-                            <InputText class="modern-input" @bind-Value="Expediente.ModalidadEntrega" disabled="@EsSoloConsulta" />
+                            <InputSelect class="modern-input" @bind-Value="Expediente.ModalidadEntrega" disabled="@EsSoloConsulta">
+                                <option disabled selected value="">-- Seleccione --</option>
+                                @foreach (var modalidad in Catalogos.ModalidadEntrega)
+                                {
+                                    <option value="@modalidad">@modalidad</option>
+                                }
+                            </InputSelect>
                         </div>
 
                         <div class="input-group">
@@ -403,6 +452,8 @@
 @code {
     // Variable local para el campo "Otro"
     private string OtraFormaEntregaEspecifica { get; set; } = string.Empty;
+    private string _EspecificarMedioManual = string.Empty;
+    private string _EspecificarOtroMedioEntrega = string.Empty;
 
     private readonly List<string> CatalogoAreas = new List<string>
     {
@@ -501,20 +552,35 @@
                 DatosRecursoRevision = expedienteDTO.DatosRecursoRevision ?? string.Empty,
                 NumeroSesionComiteAmpliacion = expedienteDTO.NumeroSesionComiteAmpliacion,
                 FechaSesionComiteAmpliacion = expedienteDTO.FechaSesionComiteAmpliacion,
-                MedioRecepcionSolicitudManual = expedienteDTO.MedioRecepcionSolicitudManual ?? string.Empty,
                 Nota = expedienteDTO.Nota ?? string.Empty
             };
 
             // 🔥 TRUCO MAGICO: Extraer "Otro" si viene concatenado de la base de datos
-            var formaDeseada = expedienteDTO.ComoDeseaRecibirRespuestaPersonaSolicitante ?? string.Empty;
-            if (formaDeseada.StartsWith("Otro:", StringComparison.OrdinalIgnoreCase))
+            string medioManualDB = expedienteDTO.MedioRecepcionSolicitudManual ?? string.Empty;
+            if (medioManualDB.StartsWith("Otro: "))
             {
-                Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante = "Otro";
-                OtraFormaEntregaEspecifica = formaDeseada.Substring(5).Trim();
+                Expediente.MedioRecepcionSolicitudManual = "Otro";
+                _EspecificarMedioManual = medioManualDB.Substring(6);
             }
             else
             {
-                Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante = formaDeseada;
+                Expediente.MedioRecepcionSolicitudManual = medioManualDB;
+            }
+
+            string formaEntregaDB = expedienteDTO.ComoDeseaRecibirRespuestaPersonaSolicitante ?? string.Empty;
+            if (formaEntregaDB.StartsWith("Otro: "))
+            {
+                Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante = "CUALQUIER OTRO MEDIO ELECTRÓNICO";
+                _EspecificarOtroMedioEntrega = formaEntregaDB.Substring(6);
+            }
+            else if (formaEntregaDB.StartsWith("Otro Forma: "))
+            {
+                Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante = "Otro";
+                OtraFormaEntregaEspecifica = formaEntregaDB.Substring(12);
+            }
+            else
+            {
+                Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante = formaEntregaDB;
             }
         }
         else
@@ -621,11 +687,32 @@
         expedienteOriginal.CorreoElectronicoSolicitante = Expediente.CorreoElectronico;
         expedienteOriginal.ContenidoSolicitud = Expediente.ContenidoSolicitud;
 
-        // 🔥 TRUCO MAGICO: Guardar "Otro" empaquetado en la misma columna de base de datos
-        expedienteOriginal.ComoDeseaRecibirRespuestaPersonaSolicitante = 
-            Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante == "Otro" 
-            ? $"Otro: {OtraFormaEntregaEspecifica}" 
-            : Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante;
+        // 🔥 Lógica para encapsular los campos "Otro" y guardarlos en BD
+        if (Expediente.RecibidaRegistrada == "Manual" && Expediente.MedioRecepcionSolicitudManual == "Otro")
+        {
+            expedienteOriginal.MedioRecepcionSolicitudManual = "Otro: " + _EspecificarMedioManual;
+        }
+        else if (Expediente.RecibidaRegistrada == "Otro")
+        {
+            expedienteOriginal.MedioRecepcionSolicitudManual = Expediente.MedioRecepcionSolicitudManual;
+        }
+        else
+        {
+            expedienteOriginal.MedioRecepcionSolicitudManual = Expediente.MedioRecepcionSolicitudManual;
+        }
+
+        if (Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante == "CUALQUIER OTRO MEDIO ELECTRÓNICO")
+        {
+            expedienteOriginal.ComoDeseaRecibirRespuestaPersonaSolicitante = "Otro: " + _EspecificarOtroMedioEntrega;
+        }
+        else if (Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante == "Otro")
+        {
+            expedienteOriginal.ComoDeseaRecibirRespuestaPersonaSolicitante = "Otro Forma: " + OtraFormaEntregaEspecifica;
+        }
+        else
+        {
+            expedienteOriginal.ComoDeseaRecibirRespuestaPersonaSolicitante = Expediente.ComoDeseaRecibirRespuestaPersonaSolicitante;
+        }
 
         expedienteOriginal.CiudadSolicitante = Expediente.Ciudad;
         expedienteOriginal.AreaPoseedoraInformacion = Expediente.AreaInformacion;
@@ -641,7 +728,6 @@
         expedienteOriginal.DatosRecursoRevision = Expediente.DatosRecursoRevision;
         expedienteOriginal.NumeroSesionComiteAmpliacion = Expediente.NumeroSesionComiteAmpliacion;
         expedienteOriginal.FechaSesionComiteAmpliacion = Expediente.FechaSesionComiteAmpliacion;
-        expedienteOriginal.MedioRecepcionSolicitudManual = Expediente.MedioRecepcionSolicitudManual;
         expedienteOriginal.Nota = Expediente.Nota;
 
         var exito = await ExpedienteService.Actualizar(expedienteOriginal);
